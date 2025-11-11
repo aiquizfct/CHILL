@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Tiêu đề sẽ được cập nhật bằng JS -->
     <title>Đang tải chủ đề... - Chill</title> 
     
     <!-- 1. TAILWIND CSS -->
@@ -294,8 +293,7 @@
         let quill; 
         let isCurrentUserAdmin = false; 
         
-        // (MỚI) Biến toàn cục để lưu thời gian của bình luận cuối cùng
-        let latestReplyTimestamp = null;
+        let latestReplyTimestamp = null; // Lưu thời gian của bình luận cuối cùng
 
         try {
             firebase.initializeApp(firebaseConfig);
@@ -306,8 +304,8 @@
             document.getElementById('topic-loading').innerHTML = "Lỗi tải config. Hãy kiểm tra console (F12).";
         }
         
-        // --- 3. Logic Auth/Admin ---
-        function setupAuthUI() {
+        // --- (SỬA LỖI) 3. Logic Auth/Admin ---
+        function setupAuthUI(topicId) { // (MỚI) Nhận topicId
             if (!auth || !db) { return; }
             const authLinksDesktop = document.getElementById('auth-links-desktop');
             const userProfileDesktop = document.getElementById('user-profile-desktop');
@@ -345,7 +343,7 @@
 
             auth.onAuthStateChanged(async (user) => { 
                 if (user) {
-                    currentUser = user; // Gán currentUser ở đây
+                    currentUser = user; 
                     const name = user.displayName || "Bạn";
                     if (userNameDesktop) userNameDesktop.innerText = name;
                     if (authLinksDesktop) { authLinksDesktop.classList.add('hidden'); authLinksDesktop.classList.remove('md:flex'); }
@@ -356,15 +354,8 @@
                     
                     await checkUserRole(user.uid); 
                     
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const topicId = urlParams.get('id');
-                    if (topicId) {
-                        fetchTopic(topicId); 
-                        listenForReplies(topicId); 
-                    }
-
                 } else {
-                    currentUser = null; // Gán currentUser = null
+                    currentUser = null; 
                     if (authLinksDesktop) { authLinksDesktop.classList.remove('hidden'); authLinksDesktop.classList.add('md:flex'); }
                     if (userProfileDesktop) { userProfileDesktop.classList.add('hidden'); userProfileDesktop.classList.remove('md:flex'); }
                     if (authLinksMobile) authLinksMobile.classList.remove('hidden');
@@ -372,6 +363,13 @@
                     if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
                     if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
                     isCurrentUserAdmin = false; 
+                }
+                
+                // (SỬA LỖI) Chỉ gọi fetch/listen MỘT LẦN, sau khi auth đã sẵn sàng
+                // (Điều này khắc phục lỗi Vercel "Đang tải...")
+                if (topicId) {
+                    fetchTopic(topicId); 
+                    listenForReplies(topicId); 
                 }
             });
 
@@ -381,7 +379,6 @@
         
         // --- 4. Logic Tải Dữ liệu Trang ---
         
-        // (SỬA LỖI) Dùng lại định dạng ngày giờ đầy đủ
         function formatFullDate(timestamp) {
              if (!timestamp) return 'Vừa xong';
              const date = timestamp.toDate();
@@ -391,9 +388,6 @@
              });
         }
 
-        /**
-         * (Hàm tải 1 chủ đề - topic)
-         */
         async function fetchTopic(topicId) {
             const container = document.getElementById('topic-container');
             const loading = document.getElementById('topic-loading');
@@ -412,7 +406,6 @@
                     
                     document.getElementById('topic-date').innerText = `Đăng vào ngày ${formatFullDate(topic.createdAt)}`;
                     
-                    // Ghi đè mốc thời gian
                     latestReplyTimestamp = topic.createdAt; 
                     
                     const authorName = topic.authorName || 'Người dùng';
@@ -460,9 +453,6 @@
             }
         }
 
-        /**
-         * (Hàm lắng nghe - replies)
-         */
         function listenForReplies(topicId) {
             const list = document.getElementById('replies-list');
             const loading = document.getElementById('replies-loading');
@@ -558,12 +548,10 @@
                             </div>
                         `;
                         
-                        // (MỚI) Cập nhật mốc thời gian của bình luận cuối cùng
-                        if (replyCounter === querySnapshot.size) { // Nếu là doc cuối cùng
+                        if (replyCounter === querySnapshot.size) { 
                             latestReplyTimestamp = reply.createdAt;
                         }
 
-                        // Tải vai trò (bất đồng bộ)
                         if (reply.authorId) {
                             db.collection('users').doc(reply.authorId).get().then(userDoc => {
                                 let role = 'Thành viên';
@@ -589,9 +577,6 @@
             });
         }
         
-        /**
-         * (Hàm gắn sự kiện trích dẫn)
-         */
         function attachQuoteButtonListeners() {
             const quoteButtons = document.querySelectorAll('.quote-btn');
             const replyForm = document.getElementById('reply-form-container');
@@ -616,9 +601,6 @@
             });
         }
 
-        /**
-         * (CẬP NHẬT) Hàm gửi trả lời (Sửa lỗi "Fake Time")
-         */
         async function handleReplySubmit(topicId) { 
             
             if (!currentUser || !quill) {
@@ -641,17 +623,13 @@
             submitButton.innerText = "Đang gửi...";
 
             try {
-                // (MỚI) Logic quyết định thời gian
                 let finalReplyTimestamp;
                 const now = new Date();
                 
-                // Nếu mốc thời gian cuối cùng (của seeding) ở TƯƠNG LAI
                 if (latestReplyTimestamp && latestReplyTimestamp.toDate() > now) {
-                    // Tạo một ngày giờ "fake" mới (5 phút sau bình luận cuối)
                     const newFakeDate = new Date(latestReplyTimestamp.toDate().getTime() + 5 * 60 * 1000);
                     finalReplyTimestamp = firebase.firestore.Timestamp.fromDate(newFakeDate);
                 } else {
-                    // Nếu không, dùng thời gian thật
                     finalReplyTimestamp = firebase.firestore.FieldValue.serverTimestamp();
                 }
 
@@ -659,14 +637,14 @@
                     content: content, 
                     authorName: currentUser.displayName || "Người dùng ẩn danh",
                     authorId: currentUser.uid,
-                    createdAt: finalReplyTimestamp, // (SỬA) Dùng timestamp đã quyết định
+                    createdAt: finalReplyTimestamp, 
                     likedBy: [], 
                     likeCount: 0 
                 });
                 
                 const topicRef = db.collection("topics").doc(topicId);
                 await topicRef.update({
-                    lastReplyAt: finalReplyTimestamp, // (SỬA) Dùng timestamp đã quyết định
+                    lastReplyAt: finalReplyTimestamp, 
                     replyCount: firebase.firestore.FieldValue.increment(1) 
                 });
 
@@ -682,9 +660,6 @@
             }
         }
         
-        /**
-         * (Hàm xử lý Thích - Like)
-         */
         async function handleLike(topicId, replyId) {
             if (!currentUser) {
                 alert("Vui lòng đăng nhập để Thích bình luận!");
@@ -705,13 +680,11 @@
                     const likedBy = data.likedBy || [];
                     
                     if (likedBy.includes(uid)) {
-                        // Đã Thích -> Bỏ Thích
                         transaction.update(replyRef, {
                             likedBy: firebase.firestore.FieldValue.arrayRemove(uid),
                             likeCount: firebase.firestore.FieldValue.increment(-1)
                         });
                     } else {
-                        // Chưa Thích -> Thích
                         transaction.update(replyRef, {
                             likedBy: firebase.firestore.FieldValue.arrayUnion(uid),
                             likeCount: firebase.firestore.FieldValue.increment(1)
@@ -809,7 +782,6 @@
             
             auth.onAuthStateChanged(user => {
                 if (user) {
-                    // (SỬA LỖI) Đã chuyển gán currentUser lên hàm Auth chính
                     loginPrompt.style.display = 'none'; 
                     form.classList.remove('hidden');
                     form.classList.add('grid');
@@ -846,16 +818,14 @@
 
         // --- 6. Kích hoạt khi trang tải xong ---
         window.addEventListener('DOMContentLoaded', () => {
-            console.log('Trang "Xem Chủ đề" (v9 - Sửa lỗi Fake Time Reply) đã tải!');
+            console.log('Trang "Xem Chủ đề" (v10 - Sửa lỗi Vercel) đã tải!');
             
             const urlParams = new URLSearchParams(window.location.search);
             const topicId = urlParams.get('id'); 
             const form = document.getElementById('reply-form'); 
 
             if (topicId && db && auth) {
-                setupAuthUI();      
-                setupAuthAndReply(topicId);
-                
+                // (SỬA LỖI) Gắn sự kiện submit NGAY LẬP TỨC
                 if (form) {
                     form.onsubmit = (e) => {
                         e.preventDefault(); 
@@ -863,8 +833,10 @@
                     };
                 }
                 
-                // (Sửa) Bỏ các lệnh gọi fetch/listen ở đây,
-                // vì setupAuthUI() sẽ gọi chúng sau khi biết user role
+                // (SỬA LỖI) Gọi Auth UI *TRƯỚC*,
+                // hàm fetch/listen sẽ được gọi BÊN TRONG onAuthStateChanged
+                setupAuthUI(topicId);      
+                setupAuthAndReply(topicId);
                 
             } else if (!topicId) {
                 document.getElementById('topic-loading').innerHTML = `
