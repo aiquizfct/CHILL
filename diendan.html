@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diễn đàn - Hội "Deal" Gọn Sống "Chill"</title>
+    
+    <!-- 1. TAILWIND CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 2. FIREBASE SDKs (Thêm Auth) -->
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    
+    <!-- 3. KẾT NỐI VỚI FILE KEY.JS -->
+    <script src="key.js"></script>
+    
+    <!-- (MỚI) 4. FEATHER ICONS -->
+    <script src="https://unpkg.com/feather-icons"></script>
+
+    <style>
+        /* (CSS giống hệt các trang khác) */
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
+        .loader { border-top-color: #0d9488; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* (MỚI) Keyframes cho tuyết rơi (Giống minigame.html) */
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(360deg); opacity: 0.2; }
+        }
+        .snowflake {
+            position: fixed;
+            top: -10vh;
+            color: #cbd5e1; /* slate-300 */
+            font-size: 1.5rem;
+            animation: fall 15s linear infinite;
+            pointer-events: none;
+            z-index: 9999; /* Luôn ở trên cùng */
+        }
+    </style>
+</head>
+
+<!-- (CẬP NHẬT) Giao diện nền sáng (màu Noel) -->
+<body class="bg-gradient-to-b from-white via-red-50 to-white text-slate-700">
+
+    <!-- (MỚI) Container cho Tuyết rơi -->
+    <div id="snow-container" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <!-- ========= (CẬP NHẬT) NAVBAR (THANH ĐIỀU HƯỚNG) ========= -->
+    <header class="bg-white/95 backdrop-blur-sm shadow-sm sticky top-0 z-40">
+        <nav class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
+            <a href="index.html" class="text-3xl font-extrabold text-teal-600 transition-transform duration-300 hover:scale-105">
+                Chill
+            </a>
+            
+            <!-- Đánh dấu "Diễn đàn" là trang hiện tại -->
+            <div class="hidden md:flex items-center space-x-1">
+                <a href="index.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Trang chủ</a>
+                <a href="baiviet.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Bài Viết</a>
+                <a href="minigame.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Minigame</a>
+                <!-- (CẬP NHẬT) Link active màu đỏ -->
+                <a href="diendan.html" class="px-3 py-2 rounded-md font-semibold text-red-600">Diễn đàn</a>
+            </div>
+            
+            <!-- (Code Auth/Admin Desktop giữ nguyên) -->
+            <div id="auth-links-desktop" class="items-center space-x-2">
+                 <a href="login.html" class="px-4 py-2 text-sm font-medium text-teal-600 border border-teal-600 rounded-lg hover:bg-teal-50 transition duration-300">Đăng nhập</a>
+                 <a href="register.html" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700">Đăng ký</a>
+            </div>
+            <div id="user-profile-desktop" class="items-center space-x-3">
+                 <span class="font-medium text-slate-700">Chào, <span id="user-name-desktop" class="font-bold text-teal-600">User</span></span>
+                 <a id="admin-link-desktop" href="admin.html" class="hidden px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">Trang Admin</a>
+                 <button id="logout-btn-desktop" class="px-3 py-2 text-sm font-medium text-red-600 border border-red-600 rounded-lg hover:bg-red-50">Đăng xuất</button>
+            </div>
+
+            <div class="md:hidden">
+                <button id="mobile-menu-button" class="text-slate-700 hover:text-teal-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
+            </div>
+        </nav>
+        
+        <!-- (CẬP NHẬT) Menu mobile Auth/Admin -->
+        <div id="mobile-menu" class="md:hidden hidden bg-white shadow-lg">
+             <a href="index.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Trang chủ</a>
+            <a href="baiviet.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Bài Viết</a>
+            <a href="minigame.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Minigame</a>
+            <a href="diendan.html" class="block px-4 py-3 text-base font-semibold text-red-600">Diễn đàn</a> <!-- (CẬP NHẬT) Màu đỏ -->
+            
+            <div id="auth-links-mobile" class="border-t border-slate-200 px-4 py-3 space-y-2">
+                <a href="register.html" class="block w-full text-center px-4 py-2 text-base font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg">Đăng ký</a>
+                <a href="login.html" class="block w-full text-center px-4 py-2 text-base font-medium text-teal-600 bg-teal-50 rounded-lg">Đăng nhập</a>
+            </div>
+            <div id="user-profile-mobile" class="hidden border-t border-slate-200 px-4 py-3">
+                <div class="mb-2"><span class="font-medium text-slate-700">Chào, <span id="user-name-mobile" class="font-bold text-teal-600">User</span></span></div>
+                <a id="admin-link-mobile" href="admin.html" class="hidden block w-full text-center px-4 py-2 text-base font-medium text-white bg-red-600 rounded-lg mb-2">Trang Admin</a>
+                <button id="logout-btn-mobile" class="block w-full text-center px-4 py-2 text-base font-medium text-red-600 bg-red-50 rounded-lg">Đăng xuất</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========= MAIN CONTENT (NỘI DUNG CHÍNH) ========= -->
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <section class="fade-in-up">
+            <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight mb-4 text-center">
+                Diễn đàn Thảo luận 🎅
+            </h1>
+            <p class="text-lg text-slate-600 text-center max-w-2xl mx-auto mb-10">
+                Nơi chia sẻ kinh nghiệm, đặt câu hỏi và cùng nhau tìm cách "deal" deadline hiệu quả.
+            </p>
+
+            <!-- (Nút tạo chủ đề thông minh) -->
+            <div class="mb-10 text-center">
+                <a id="create-topic-btn" href="login.html" class="inline-block px-6 py-3 font-semibold text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg shadow-lg hover:from-teal-600 hover:to-cyan-700 transition-all duration-300 transform hover:scale-105">
+                    &#43; Tạo chủ đề mới
+                </a>
+            </div>
+            
+            <!-- Trạng thái Tải dữ liệu -->
+            <div id="topics-loading" class="text-center text-slate-500 py-10">
+                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mx-auto mb-4"></div>
+                <p>Đang tải các chủ đề thảo luận...</p>
+            </div>
+            
+            <!-- 
+              Khu vực chứa tất cả chủ đề
+            -->
+            <div id="topics-container" class="max-w-3xl mx-auto space-y-4">
+                <!-- Các topic từ Firebase sẽ được chèn vào đây -->
+            </div>
+            
+        </section>
+    </main>
+    
+    <!-- (CẬP NHẬT) FOOTER ĐẦY ĐỦ -->
+    <footer class="bg-white border-t border-gray-200 mt-16">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                <div>
+                    <a href="index.html" class="text-2xl font-extrabold text-teal-600">
+                        Chill
+                    </a>
+                    <p class="mt-1 text-sm text-slate-500">Hội "Deal" Gọn Sống "Chill"</p>
+                </div>
+                <div class="flex space-x-6 text-sm font-medium text-slate-600">
+                    <a href="baiviet.html" class="hover:text-teal-600">Bài Viết</a>
+                    <a href="minigame.html" class="hover:text-teal-600">Minigame</a>
+                    <a href="diendan.html" class="hover:text-teal-600">Diễn đàn</a>
+                </div>
+            </div>
+            <div class="mt-8 text-center text-xs text-slate-400">
+                &copy; 2025. Phát triển bởi Thông.
+            </div>
+        </div>
+    </footer>
+
+    <!-- 
+      ==================================================================
+      PHẦN JAVASCRIPT
+      ==================================================================
+    -->
+    <script>
+        // --- 1. Logic cho Menu Mobile (Giữ nguyên) ---
+        const menuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        menuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // --- 2. Logic Firebase ---
+        let db;
+        let auth;
+        
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch (e) {
+            console.error("Lỗi khởi tạo Firebase: ", e);
+            document.getElementById('topics-loading').innerHTML = "Lỗi tải config. Hãy kiểm tra console (F12).";
+        }
+
+        /**
+         * (Giữ nguyên) Hàm tải TẤT CẢ chủ đề
+         */
+        async function fetchAllTopics() {
+            const container = document.getElementById('topics-container');
+            const loading = document.getElementById('topics-loading');
+
+            try {
+                // Query: Lấy TẤT CẢ topic, sắp xếp theo 'lastReplyAt' mới nhất
+                const querySnapshot = await db.collection("topics")
+                    .orderBy("lastReplyAt", "desc")
+                    .get(); // <-- ĐÃ BỎ .limit(3)
+                
+                let topicsHtml = '';
+                querySnapshot.forEach((doc) => {
+                    const topic = doc.data();
+                    const topicId = doc.id;
+                    
+                    // (Sử dụng mẫu card HTML giống hệt trang chủ)
+                    topicsHtml += `
+                        <a href="viewdiendan.html?id=${topicId}" class="block bg-white p-5 rounded-lg shadow-md transition duration-300 hover:shadow-lg hover:border-l-4 hover:border-teal-400">
+                            <div class="flex justify-between items-start">
+                                <div class="flex space-x-3">
+                                    <div class="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-gray-100 text-teal-600 rounded-full">
+                                        <!-- Icon Chat SVG -->
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                          <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-semibold text-slate-800 hover:text-teal-700">${topic.title || 'Tiêu đề chủ đề'}</h3>
+                                        <p class="text-sm text-slate-500 mt-1">
+                                            Bởi <span class="font-medium text-teal-700">${topic.authorName || 'Người dùng'}</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <span class="flex-shrink-0 text-sm font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
+                                    ${topic.replyCount || 0} Trả lời
+                                </span>
+                            </div>
+                        </a>
+                    `;
+                });
+
+                if (querySnapshot.empty) {
+                    loading.innerText = "Chưa có chủ đề thảo luận nào.";
+                } else {
+                    container.innerHTML = topicsHtml; // Chèn HTML vào container
+                    loading.style.display = 'none'; // Ẩn loading
+                }
+
+            } catch (error) {
+                console.error("Lỗi tải chủ đề: ", error);
+                loading.innerText = "Không thể tải chủ đề.";
+            }
+        }
+
+        // --- 3. (CẬP NHẬT) Logic Auth/Admin (Giống hệt index.html) ---
+        function setupAuthUI() {
+            if (!auth || !db) {
+                console.error("Auth hoặc Firestore chưa được khởi tạo.");
+                return;
+            }
+            // Lấy các DOM element
+            const authLinksDesktop = document.getElementById('auth-links-desktop');
+            const userProfileDesktop = document.getElementById('user-profile-desktop');
+            const userNameDesktop = document.getElementById('user-name-desktop');
+            const logoutBtnDesktop = document.getElementById('logout-btn-desktop');
+            const authLinksMobile = document.getElementById('auth-links-mobile');
+            const userProfileMobile = document.getElementById('user-profile-mobile');
+            const userNameMobile = document.getElementById('user-name-mobile');
+            const logoutBtnMobile = document.getElementById('logout-btn-mobile');
+            const adminLinkDesktop = document.getElementById('admin-link-desktop');
+            const adminLinkMobile = document.getElementById('admin-link-mobile');
+            
+            // (MỚI) Lấy nút "Tạo chủ đề"
+            const createTopicBtn = document.getElementById('create-topic-btn');
+
+            async function checkUserRole(uid) {
+                if (!uid) return;
+                try {
+                    const userDoc = await db.collection('users').doc(uid).get();
+                    if (userDoc.exists && userDoc.data().role === 'admin') {
+                        if (adminLinkDesktop) adminLinkDesktop.classList.remove('hidden');
+                        if (adminLinkMobile) adminLinkMobile.classList.remove('hidden');
+                    } else {
+                        if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                        if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                    }
+                } catch (error) {
+                    if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                    if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                }
+            }
+
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    // Đã đăng nhập
+                    const name = user.displayName || "Bạn";
+                    if (userNameDesktop) userNameDesktop.innerText = name;
+                    if (authLinksDesktop) { authLinksDesktop.classList.add('hidden'); authLinksDesktop.classList.remove('md:flex'); }
+                    if (userProfileDesktop) { userProfileDesktop.classList.remove('hidden'); userProfileDesktop.classList.add('md:flex'); }
+                    if (userNameMobile) userNameMobile.innerText = name;
+                    if (authLinksMobile) authLinksMobile.classList.add('hidden');
+                    if (userProfileMobile) userProfileMobile.classList.remove('hidden');
+                    checkUserRole(user.uid);
+                    
+                    // (MỚI) Sửa link cho nút "Tạo chủ đề"
+                    if (createTopicBtn) createTopicBtn.href = "createtopic.html"; 
+
+                } else {
+                    // Đã đăng xuất
+                    if (authLinksDesktop) { authLinksDesktop.classList.remove('hidden'); authLinksDesktop.classList.add('md:flex'); }
+                    if (userProfileDesktop) { userProfileDesktop.classList.add('hidden'); userProfileDesktop.classList.remove('md:flex'); }
+                    if (authLinksMobile) authLinksMobile.classList.remove('hidden');
+                    if (userProfileMobile) userProfileMobile.classList.add('hidden');
+                    if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                    if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                    
+                    // (MỚI) Giữ link cho nút "Tạo chủ đề" là "login.html"
+                    if (createTopicBtn) createTopicBtn.href = "login.html";
+                }
+            });
+
+            const handleLogout = () => { auth.signOut(); };
+            if (logoutBtnDesktop) logoutBtnDesktop.onclick = handleLogout;
+            if (logoutBtnMobile) logoutBtnMobile.onclick = handleLogout;
+        }
+        
+        // (MỚI) Hàm tạo tuyết (Giống minigame.html)
+        function createSnowflakes() {
+            const snowContainer = document.getElementById('snow-container');
+            if (!snowContainer) return; 
+            const snowflakesCount = 30; 
+
+            for (let i = 0; i < snowflakesCount; i++) {
+                const snowflake = document.createElement('span');
+                snowflake.className = 'snowflake';
+                snowflake.innerHTML = '❄️';
+                
+                snowflake.style.left = Math.random() * 100 + 'vw';
+                snowflake.style.animationDuration = (Math.random() * 20 + 10) + 's'; 
+                snowflake.style.animationDelay = Math.random() * 10 + 's'; 
+                snowflake.style.fontSize = (Math.random() * 1 + 0.5) + 'rem'; 
+                snowflake.style.opacity = Math.random() * 0.5 + 0.3; 
+                
+                snowContainer.appendChild(snowflake);
+            }
+        }
+
+        // --- 4. Kích hoạt hàm tải dữ liệu khi trang được tải ---
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Trang "Diễn đàn" (Giao diện Noel) đã tải!');
+            
+            createSnowflakes(); // (MỚI) Tạo tuyết
+            feather.replace(); // (MỚI) Kích hoạt icons (nếu có)
+
+            if (typeof firebaseConfig !== 'undefined') {
+                fetchAllTopics(); // <-- Gọi hàm tải tất cả chủ đề
+                setupAuthUI();    // (MỚI) Gọi hàm Auth
+            } else {
+                console.error("Biến firebaseConfig không tồn tại. File key.js có thể chưa được tải đúng.");
+            }
+        });
+
+    </script>
+
+</body>
+</html>

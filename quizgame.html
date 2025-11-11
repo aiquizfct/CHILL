@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Trắc Nghiệm - Chill</title> 
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    
+    <script src="key.js"></script>
+
+    <style>
+        /* (CSS chung, font chữ) */
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+        .loader { border-top-color: #0d9488; animation: spin 1s linear infinite; }
+        
+        /* (Keyframes cho hoạt ảnh - Giữ nguyên) */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes slideInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        /* (MỚI) CSS thuần cho các nút (Thay thế @apply) */
+        .quiz-option-btn {
+            width: 100%;
+            padding: 1rem; /* 16px */
+            background-color: #ffffff;
+            border: 2px solid #D1D5DB; /* border-gray-300 */
+            border-radius: 0.5rem; /* rounded-lg */
+            text-align: left;
+            font-weight: 500;
+            color: #334155; /* text-slate-700 */
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .quiz-option-btn:hover {
+            border-color: #a855f7; /* border-purple-500 */
+            background-color: #f5f3ff; /* bg-purple-50 */
+        }
+        .quiz-option-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        /* Khi trả lời đúng */
+        .quiz-option-btn.correct {
+            background-color: #D1FAE5; /* bg-green-100 */
+            border-color: #10B981; /* border-green-500 */
+            color: #065F46; /* text-green-800 */
+            font-weight: 700;
+            animation: bounce 0.5s ease;
+        }
+        /* Khi trả lời sai */
+        .quiz-option-btn.incorrect {
+            background-color: #FEE2E2; /* bg-red-100 */
+            border-color: #EF4444; /* border-red-500 */
+            color: #991B1B; /* text-red-800 */
+            animation: shake 0.5s ease;
+        }
+        
+        /* Lớp tiện ích (Giữ nguyên) */
+        .animate-pop-in { animation: popIn 0.5s ease-out forwards; }
+        .animate-slide-in-up { animation: slideInUp 0.5s ease-out forwards; }
+    </style>
+</head>
+
+<body class="bg-gradient-to-b from-white via-gray-50 to-white text-slate-700">
+
+    <header class="bg-white/95 backdrop-blur-sm shadow-sm sticky top-0 z-40">
+        <nav class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
+            <a href="index.html" class="text-3xl font-extrabold text-teal-600 transition-transform duration-300 hover:scale-105">
+                Chill
+            </a>
+            
+            <div class="hidden md:flex items-center space-x-1">
+                <a href="index.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Trang chủ</a>
+                <a href="baiviet.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Bài Viết</a>
+                <a href="minigame.html" class="px-3 py-2 rounded-md font-semibold text-teal-600">Minigame</a>
+                <a href="diendan.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Diễn đàn</a>
+            </div>
+            
+            <div id="auth-links-desktop" class="items-center space-x-2">
+                 <a href="login.html" class="px-4 py-2 text-sm font-medium text-teal-600 border border-teal-600 rounded-lg hover:bg-teal-50 transition duration-300">Đăng nhập</a>
+                 <a href="register.html" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700">Đăng ký</a>
+            </div>
+            <div id="user-profile-desktop" class="items-center space-x-3">
+                 <span class="font-medium text-slate-700">Chào, <span id="user-name-desktop" class="font-bold text-teal-600">User</span></span>
+                 <a id="admin-link-desktop" href="admin.html" class="hidden px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">Trang Admin</a>
+                 <button id="logout-btn-desktop" class="px-3 py-2 text-sm font-medium text-red-600 border border-red-600 rounded-lg hover:bg-red-50">Đăng xuất</button>
+            </div>
+
+            <div class="md:hidden">
+                <button id="mobile-menu-button" class="text-slate-700 hover:text-teal-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
+            </div>
+        </nav>
+        
+        <div id="mobile-menu" class="md:hidden hidden bg-white shadow-lg">
+             </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        
+        <div id="page-loader" class="text-center text-slate-500 py-20">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mx-auto mb-4"></div>
+            <p>Đang tải trò chơi...</p>
+        </div>
+        
+        <div id="quiz-login-prompt" class="hidden text-center text-slate-600 bg-gray-100 p-8 rounded-lg max-w-lg mx-auto shadow-lg">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4">Bạn cần đăng nhập để chơi!</h2>
+            <p class="mb-6">Vui lòng đăng nhập để tham gia trắc nghiệm và lưu điểm vào bảng xếp hạng.</p>
+            <a href="login.html" class="px-6 py-3 font-semibold text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700">
+                Đăng nhập ngay
+            </a>
+        </div>
+        
+        <div id="quiz-container" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-2 bg-white p-6 sm:p-8 rounded-lg shadow-xl">
+                <h1 class="text-3xl font-extrabold text-slate-900 mb-4">
+                    Thử thách Trắc nghiệm
+                </h1>
+                
+                <div class="mb-4">
+                    <div class="flex justify-between text-sm font-medium text-slate-600 mb-1">
+                        <span>Tiến độ</span>
+                        <span id="question-counter-text">Câu 0/0</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="progress-bar" class="bg-purple-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="mb-6 text-3xl font-bold text-teal-600">
+                    Điểm: <span id="quiz-score">0</span>
+                </div>
+                
+                <hr class="border-gray-200 mb-6">
+                
+                <div id="quiz-game-area" style="min-height: 400px;">
+                    <div id="quiz-question-loader" class="text-center text-slate-500 py-10">
+                        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-8 w-8 mx-auto mb-3"></div>
+                        <p>Đang tải câu hỏi...</p>
+                    </div>
+                    
+                    <div id="quiz-question-content" class="hidden">
+                        <h2 id="quiz-question-text" class="text-2xl font-semibold text-slate-900 mb-8" style="min-height: 60px;">
+                            </h2>
+                        
+                        <div id="quiz-options-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            </div>
+                    </div>
+                    
+                    <div id="quiz-end-screen" class="hidden text-center py-10 animate-pop-in">
+                        <h2 class="text-4xl font-bold text-teal-600">Hoàn thành!</h2>
+                        <p class="text-xl text-slate-600 mt-2">Bạn đã đạt được số điểm cuối cùng là:</p>
+                        <p id="quiz-final-score" class="text-6xl font-extrabold text-slate-900 my-6">0</p>
+                        <p class="text-gray-500">Nhấn "Lưu & Chơi lại" để lưu điểm vào BXH!</p>
+                    </div>
+                </div>
+                
+                <div class="mt-8 pt-6 border-t border-gray-200 flex justify-between items-center">
+                    <button id="save-score-btn" class="px-5 py-3 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-all">
+                        Lưu điểm & Chơi lại
+                    </button>
+                    
+                    <button id="next-question-btn" class="hidden px-5 py-3 font-semibold text-white bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg hover:from-purple-600 hover:to-indigo-700 transition-all">
+                        Câu tiếp theo &rarr;
+                    </button>
+                </div>
+            </div>
+            
+            <div class="lg:col-span-1">
+                <div class="bg-gray-50 p-6 rounded-lg shadow-lg sticky top-24">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-4">
+                        Bảng xếp hạng
+                    </h2>
+                    
+                    <div id="leaderboard-loading" class="text-center text-slate-500 py-5">
+                        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-8 w-8 mx-auto mb-3"></div>
+                        <p>Đang tải...</p>
+                    </div>
+                    
+                    <ol id="leaderboard-list" class="space-y-3">
+                        </ol>
+                </div>
+            </div>
+        </div>
+
+    </main>
+    
+    <script>
+        // --- 1. Logic cho Menu Mobile (Giữ nguyên) ---
+        const menuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        menuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // --- 2. Logic Firebase (Khởi tạo) ---
+        let db;
+        let auth;
+        let currentUser = null; 
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch (e) {
+            console.error("Lỗi khởi tạo Firebase: ", e);
+            document.getElementById('page-loader').innerText = "Lỗi kết nối CSDL.";
+        }
+        
+        // --- 3. Logic Auth/Admin (Giữ nguyên) ---
+        function setupAuthUI() {
+            if (!auth || !db) { return; }
+            const authLinksDesktop = document.getElementById('auth-links-desktop');
+            const userProfileDesktop = document.getElementById('user-profile-desktop');
+            const userNameDesktop = document.getElementById('user-name-desktop');
+            const logoutBtnDesktop = document.getElementById('logout-btn-desktop');
+            const authLinksMobile = document.getElementById('auth-links-mobile');
+            const userProfileMobile = document.getElementById('user-profile-mobile');
+            const userNameMobile = document.getElementById('user-name-mobile');
+            const logoutBtnMobile = document.getElementById('logout-btn-mobile');
+            const adminLinkDesktop = document.getElementById('admin-link-desktop');
+            const adminLinkMobile = document.getElementById('admin-link-mobile');
+
+            async function checkUserRole(uid) {
+                if (!uid) return;
+                try {
+                    const userDoc = await db.collection('users').doc(uid).get();
+                    if (userDoc.exists && userDoc.data().role === 'admin') {
+                        if (adminLinkDesktop) adminLinkDesktop.classList.remove('hidden');
+                        if (adminLinkMobile) adminLinkMobile.classList.remove('hidden');
+                    } else {
+                        if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                        if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                    }
+                } catch (error) {
+                    if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                    if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                }
+            }
+
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    const name = user.displayName || "Bạn";
+                    if (userNameDesktop) userNameDesktop.innerText = name;
+                    if (authLinksDesktop) { authLinksDesktop.classList.add('hidden'); authLinksDesktop.classList.remove('md:flex'); }
+                    if (userProfileDesktop) { userProfileDesktop.classList.remove('hidden'); userProfileDesktop.classList.add('md:flex'); }
+                    if (userNameMobile) userNameMobile.innerText = name;
+                    if (authLinksMobile) authLinksMobile.classList.add('hidden');
+                    if (userProfileMobile) userProfileMobile.classList.remove('hidden');
+                    checkUserRole(user.uid);
+                } else {
+                    if (authLinksDesktop) { authLinksDesktop.classList.remove('hidden'); authLinksDesktop.classList.add('md:flex'); }
+                    if (userProfileDesktop) { userProfileDesktop.classList.add('hidden'); userProfileDesktop.classList.remove('md:flex'); }
+                    if (authLinksMobile) authLinksMobile.classList.remove('hidden');
+                    if (userProfileMobile) userProfileMobile.classList.add('hidden');
+                    if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                    if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                }
+            });
+
+            const handleLogout = () => { auth.signOut(); };
+            if (logoutBtnDesktop) logoutBtnDesktop.onclick = handleLogout;
+            if (logoutBtnMobile) logoutBtnMobile.onclick = handleLogout;
+        }
+
+        // --- 4. Logic Game Trắc nghiệm (Giữ nguyên) ---
+        
+        let allQuizQuestions = []; 
+        let currentQuizQuestion = null;
+        let currentQuizScore = 0;
+        let quizGameInProgress = true;
+        let questionCount = 0; 
+        let TOTAL_QUESTIONS_PER_SESSION = 0; 
+
+        const pageLoader = document.getElementById('page-loader');
+        const loginPrompt = document.getElementById('quiz-login-prompt');
+        const quizContainer = document.getElementById('quiz-container');
+        const scoreDisplay = document.getElementById('quiz-score');
+        const questionLoader = document.getElementById('quiz-question-loader');
+        const questionContent = document.getElementById('quiz-question-content');
+        const questionText = document.getElementById('quiz-question-text');
+        const optionsGrid = document.getElementById('quiz-options-grid');
+        const nextQuestionBtn = document.getElementById('next-question-btn');
+        const saveScoreBtn = document.getElementById('save-score-btn');
+        const leaderboardLoading = document.getElementById('leaderboard-loading');
+        const leaderboardList = document.getElementById('leaderboard-list');
+        const progressBar = document.getElementById('progress-bar'); 
+        const questionCounterText = document.getElementById('question-counter-text'); 
+        const quizEndScreen = document.getElementById('quiz-end-screen'); 
+        const quizGameArea = document.getElementById('quiz-game-area'); 
+        const finalScoreText = document.getElementById('quiz-final-score'); 
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        async function startGameSession() {
+            quizGameInProgress = false;
+            pageLoader.classList.remove('hidden');
+            quizContainer.classList.add('hidden');
+            
+            try {
+                const snapshot = await db.collection('quizzes').get();
+                
+                if (snapshot.empty) {
+                    pageLoader.innerHTML = '<p class="text-red-500">Lỗi: Admin chưa thêm câu hỏi nào!</p>';
+                    return;
+                }
+                
+                allQuizQuestions = snapshot.docs.map(doc => doc.data());
+                TOTAL_QUESTIONS_PER_SESSION = allQuizQuestions.length;
+                
+                shuffleArray(allQuizQuestions);
+                
+                currentQuizScore = 0;
+                questionCount = 0;
+                scoreDisplay.innerText = "0";
+                
+                loadNextQuestion();
+                
+                pageLoader.classList.add('hidden');
+                quizContainer.classList.remove('hidden');
+                
+            } catch (error) {
+                console.error("Lỗi khi bắt đầu game:", error);
+                pageLoader.innerHTML = '<p class="text-red-500">Không thể tải được game. Vui lòng thử lại.</p>';
+            }
+        }
+        
+        function loadNextQuestion() {
+            if (questionCount >= TOTAL_QUESTIONS_PER_SESSION) {
+                showEndGame();
+                return;
+            }
+            
+            quizGameInProgress = false; 
+            
+            quizEndScreen.classList.add('hidden');
+            quizGameArea.classList.remove('hidden');
+
+            questionContent.classList.add('hidden');
+            questionLoader.classList.remove('hidden');
+            nextQuestionBtn.classList.add('hidden');
+            
+            updateProgress();
+            
+            currentQuizQuestion = allQuizQuestions[questionCount];
+            displayQuestion(currentQuizQuestion);
+            
+            questionCount++;
+
+            questionLoader.classList.add('hidden');
+            questionContent.classList.remove('hidden');
+        }
+
+        function displayQuestion(q) {
+            questionText.innerText = q.question;
+            questionText.className = "text-2xl font-semibold text-slate-900 mb-8 animate-pop-in";
+            
+            optionsGrid.innerHTML = ''; 
+            
+            q.options.forEach((option, index) => {
+                const optionIndex = index + 1; 
+                const button = document.createElement('button');
+                // (MỚI) Thêm class 'quiz-option-btn'
+                button.className = 'quiz-option-btn opacity-0 animate-slide-in-up';
+                button.innerText = option;
+                button.dataset.index = optionIndex;
+                button.style.animationDelay = `${index * 100}ms`;
+                
+                button.onclick = () => handleAnswerClick(button);
+                optionsGrid.appendChild(button);
+            });
+            
+            quizGameInProgress = true; 
+        }
+
+        function handleAnswerClick(buttonEl) {
+            if (!quizGameInProgress) return; 
+            quizGameInProgress = false;
+            
+            const selectedAnswer = parseInt(buttonEl.dataset.index, 10);
+            const correctAnswer = currentQuizQuestion.correctAnswer;
+            
+            const allButtons = optionsGrid.querySelectorAll('button');
+            allButtons.forEach(btn => btn.disabled = true);
+            
+            if (selectedAnswer === correctAnswer) {
+                buttonEl.classList.add('correct');
+                currentQuizScore += 10;
+                scoreDisplay.innerText = currentQuizScore;
+            } else {
+                buttonEl.classList.add('incorrect');
+                allButtons.forEach(btn => {
+                    if (parseInt(btn.dataset.index, 10) === correctAnswer) {
+                        btn.classList.add('correct'); 
+                    }
+                });
+            }
+            
+            nextQuestionBtn.classList.remove('hidden');
+        }
+        
+        function updateProgress() {
+            const percentage = ((questionCount + 1) / TOTAL_QUESTIONS_PER_SESSION) * 100;
+            progressBar.style.width = `${percentage}%`;
+            questionCounterText.innerText = `Câu ${questionCount + 1}/${TOTAL_QUESTIONS_PER_SESSION}`;
+        }
+        
+        function showEndGame() {
+            quizGameArea.classList.add('hidden'); 
+            quizEndScreen.classList.remove('hidden'); 
+            
+            finalScoreText.innerText = currentQuizScore;
+            nextQuestionBtn.classList.add('hidden'); 
+            saveScoreBtn.innerText = "Lưu điểm & Chơi lại"; 
+        }
+        
+        async function loadLeaderboard() {
+            leaderboardLoading.classList.remove('hidden');
+            leaderboardList.innerHTML = '';
+            
+            try {
+                const snapshot = await db.collection('quizLeaderboard')
+                                    .orderBy('score', 'desc')
+                                    .limit(10)
+                                    .get();
+                
+                if (snapshot.empty) {
+                    leaderboardList.innerHTML = '<p class="text-sm text-slate-500">Chưa có ai trên bảng xếp hạng.</p>';
+                } else {
+                    let rank = 1;
+                    let listHtml = '';
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        const isCurrentUser = (currentUser && currentUser.uid === data.userId);
+                        
+                        listHtml += `
+                            <li class="flex items-center space-x-3 p-3 bg-white rounded-lg shadow-sm ${isCurrentUser ? 'border-2 border-teal-500' : ''}">
+                                <span class="text-lg font-bold text-teal-600">${rank}.</span>
+                                <span class="font-semibold text-slate-700">${data.userName || 'Người dùng'}</span>
+                                <span class="ml-auto text-xl font-bold text-slate-900">${data.score}</span>
+                            </li>
+                        `;
+                        rank++;
+                    });
+                    leaderboardList.innerHTML = listHtml;
+                }
+            } catch (error) {
+                console.error("Lỗi tải BXH:", error);
+                leaderboardList.innerHTML = '<p class="text-red-500">Không thể tải BXH.</p>';
+            } finally {
+                leaderboardLoading.classList.add('hidden');
+            }
+        }
+
+        async function saveScoreToLeaderboard() {
+            if (!currentUser) {
+                alert("Bạn phải đăng nhập để lưu điểm!");
+                return;
+            }
+            if (currentQuizScore === 0 && questionCount < TOTAL_QUESTIONS_PER_SESSION) {
+                alert("Bạn chưa có điểm nào. Hãy chơi tiếp nhé!");
+                return;
+            }
+            
+            saveScoreBtn.disabled = true;
+            saveScoreBtn.innerText = "Đang lưu...";
+            
+            const leaderboardRef = db.collection('quizLeaderboard').doc(currentUser.uid);
+            
+            try {
+                const userDoc = await leaderboardRef.get();
+                let shouldUpdate = true;
+                
+                if (userDoc.exists) {
+                    const oldScore = userDoc.data().score || 0;
+                    if (currentQuizScore <= oldScore) {
+                        shouldUpdate = false;
+                        alert("Điểm của bạn (" + currentQuizScore + ") thấp hơn điểm cao nhất (" + oldScore + ") đã lưu. Không cần lưu.");
+                    }
+                }
+                
+                if (shouldUpdate) {
+                    await leaderboardRef.set({
+                        score: currentQuizScore,
+                        userName: currentUser.displayName || "Người dùng ẩn danh",
+                        userId: currentUser.uid,
+                        lastPlayed: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    alert("Đã lưu điểm cao mới: " + currentQuizScore);
+                }
+                
+                await loadLeaderboard(); 
+                await startGameSession(); 
+
+            } catch (error) {
+                console.error("Lỗi lưu điểm:", error);
+                alert("Không thể lưu điểm. Vui lòng thử lại.");
+            } finally {
+                saveScoreBtn.disabled = false;
+                saveScoreBtn.innerText = "Lưu điểm & Chơi lại";
+            }
+        }
+        
+        // --- 5. Kích hoạt khi trang tải xong ---
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Trang "Quiz Game" (v4 - Light Mode, Dynamic Count) đã tải!');
+            
+            if (db && auth) {
+                setupAuthUI(); 
+                
+                auth.onAuthStateChanged(user => {
+                    if (user) {
+                        currentUser = user;
+                        loginPrompt.classList.add('hidden');
+                        
+                        startGameSession();
+                        loadLeaderboard();
+                        
+                    } else {
+                        currentUser = null;
+                        pageLoader.style.display = 'none'; 
+                        quizContainer.classList.add('hidden');
+                        loginPrompt.classList.remove('hidden');
+                        
+                        loadLeaderboard();
+                    }
+                });
+                
+                nextQuestionBtn.onclick = loadNextQuestion;
+                saveScoreBtn.onclick = saveScoreToLeaderboard;
+            }
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bài Viết - Hội "Deal" Gọn Sống "Chill"</title>
+    
+    <!-- (SDKs giữ nguyên, thêm Auth) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    <script src="key.js"></script>
+
+    <style>
+        /* (CSS giữ nguyên) */
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
+        .loader { border-top-color: #0d9488; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* (MỚI) Keyframes cho tuyết rơi (Giống minigame.html) */
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(360deg); opacity: 0.2; }
+        }
+        .snowflake {
+            position: fixed;
+            top: -10vh;
+            color: #cbd5e1; /* slate-300 */
+            font-size: 1.5rem;
+            animation: fall 15s linear infinite;
+            pointer-events: none;
+            z-index: 9999; /* Luôn ở trên cùng */
+        }
+    </style>
+</head>
+
+<!-- (CẬP NHẬT) Giao diện nền sáng (màu Noel) -->
+<body class="bg-gradient-to-b from-white via-red-50 to-white text-slate-700">
+
+    <!-- (MỚI) Container cho Tuyết rơi -->
+    <div id="snow-container" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <!-- (Header/Navbar sẽ được cập nhật bằng JS) -->
+    <header class="bg-white/95 backdrop-blur-sm shadow-sm sticky top-0 z-40">
+        <nav class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
+            <a href="index.html" class="text-3xl font-extrabold text-teal-600 transition-transform duration-300 hover:scale-105">
+                Chill
+            </a>
+            
+            <div class="hidden md:flex items-center space-x-1">
+                <a href="index.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Trang chủ</a>
+                <!-- (CẬP NHẬT) Link active màu đỏ -->
+                <a href="baiviet.html" class="px-3 py-2 rounded-md font-semibold text-red-600">Bài Viết</a>
+                <a href="minigame.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Minigame</a>
+                <a href="diendan.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Diễn đàn</a>
+            </div>
+            
+            <!-- (Code Auth/Admin Desktop giữ nguyên) -->
+            <div id="auth-links-desktop" class="items-center space-x-2">
+                 <a href="login.html" class="px-4 py-2 text-sm font-medium text-teal-600 border border-teal-600 rounded-lg hover:bg-teal-50 transition duration-300">Đăng nhập</a>
+                 <a href="register.html" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700">Đăng ký</a>
+            </div>
+            <div id="user-profile-desktop" class="items-center space-x-3">
+                 <span class="font-medium text-slate-700">Chào, <span id="user-name-desktop" class="font-bold text-teal-600">User</span></span>
+                 <a id="admin-link-desktop" href="admin.html" class="hidden px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">Trang Admin</a>
+                 <button id="logout-btn-desktop" class="px-3 py-2 text-sm font-medium text-red-600 border border-red-600 rounded-lg hover:bg-red-50">Đăng xuất</button>
+            </div>
+
+            <div class="md:hidden">
+                <button id="mobile-menu-button" class="text-slate-700 hover:text-teal-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
+            </div>
+        </nav>
+        
+        <!-- (CẬP NHẬT) Menu Mobile với Auth -->
+        <div id="mobile-menu" class="md:hidden hidden bg-white shadow-lg">
+             <a href="index.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Trang chủ</a>
+            <a href="baiviet.html" class="block px-4 py-3 text-base font-semibold text-red-600">Bài Viết</a> <!-- (CẬP NHẬT) Màu đỏ -->
+            <a href="minigame.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Minigame</a>
+            <a href="diendan.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Diễn đàn</a>
+            
+            <div id="auth-links-mobile" class="border-t border-slate-200 px-4 py-3 space-y-2">
+                <a href="register.html" class="block w-full text-center px-4 py-2 text-base font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg">Đăng ký</a>
+                <a href="login.html" class="block w-full text-center px-4 py-2 text-base font-medium text-teal-600 bg-teal-50 rounded-lg">Đăng nhập</a>
+            </div>
+            <div id="user-profile-mobile" class="hidden border-t border-slate-200 px-4 py-3">
+                <div class="mb-2"><span class="font-medium text-slate-700">Chào, <span id="user-name-mobile" class="font-bold text-teal-600">User</span></span></div>
+                <a id="admin-link-mobile" href="admin.html" class="hidden block w-full text-center px-4 py-2 text-base font-medium text-white bg-red-600 rounded-lg mb-2">Trang Admin</a>
+                <button id="logout-btn-mobile" class="block w-full text-center px-4 py-2 text-base font-medium text-red-600 bg-red-50 rounded-lg">Đăng xuất</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========= MAIN CONTENT (NỘI DUNG CHÍNH) ========= -->
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <section class="fade-in-up">
+            <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight mb-12 text-center">
+                Tất cả Bài viết 🎅
+            </h1>
+            
+            <div id="posts-loading" class="text-center text-slate-500 py-10">
+                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mx-auto mb-4"></div>
+                <p>Đang tải tất cả bài viết...</p>
+            </div>
+            
+            <div id="posts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Các card bài viết từ Firebase sẽ được chèn vào đây -->
+            </div>
+            
+        </section>
+    </main>
+    
+    <!-- (CẬP NHẬT) FOOTER ĐẦY ĐỦ -->
+    <footer class="bg-white border-t border-gray-200 mt-16">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                <div>
+                    <a href="index.html" class="text-2xl font-extrabold text-teal-600">
+                        Chill
+                    </a>
+                    <p class="mt-1 text-sm text-slate-500">Hội "Deal" Gọn Sống "Chill"</p>
+                </div>
+                <div class="flex space-x-6 text-sm font-medium text-slate-600">
+                    <a href="baiviet.html" class="hover:text-teal-600">Bài Viết</a>
+                    <a href="minigame.html" class="hover:text-teal-600">Minigame</a>
+                    <a href="diendan.html" class="hover:text-teal-600">Diễn đàn</a>
+                </div>
+            </div>
+            <div class="mt-8 text-center text-xs text-slate-400">
+                &copy; 2025. Phát triển bởi Thông.
+            </div>
+        </div>
+    </footer>
+
+    <!-- 
+      ==================================================================
+      PHẦN JAVASCRIPT
+      ==================================================================
+    -->
+    <script>
+        // (Logic Menu Mobile giữ nguyên)
+        const menuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        menuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // (Logic Firebase init giữ nguyên)
+        let db;
+        let auth;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch (e) { /* (Error handling) */ }
+        
+        // (Hàm fetchAllPosts() giữ nguyên)
+        async function fetchAllPosts() {
+            const container = document.getElementById('posts-container');
+            const loading = document.getElementById('posts-loading');
+
+            try {
+                const querySnapshot = await db.collection("posts")
+                    .orderBy("createdAt", "desc")
+                    .get(); 
+                
+                let postsHtml = '';
+                querySnapshot.forEach((doc) => {
+                    const post = doc.data();
+                    const postId = doc.id;
+                    
+                    postsHtml += `
+                        <a href="viewbaiviet.html?id=${postId}" class="block group bg-white rounded-xl shadow-md overflow-hidden transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                            
+                            ${post.coverImageUrl 
+                                ? `<img src="${post.coverImageUrl}" alt="${post.title}" class="w-full h-48 object-cover">` 
+                                : ''}
+                            
+                            <div class="p-6">
+                                <span class="text-sm font-semibold text-teal-600">${post.category || 'KỸ NĂNG'}</span>
+                                <h3 class="mt-2 text-xl font-bold text-slate-800 group-hover:text-teal-700">${post.title || 'Tiêu đề mẫu'}</h3>
+                                <p class="mt-2 text-base text-slate-600">${post.description || 'Mô tả ngắn...'}
+                                </p>
+                            </div>
+                        </a>
+                    `;
+                });
+
+                if (querySnapshot.empty) {
+                    loading.innerText = "Chưa có bài viết nào.";
+                } else {
+                    container.innerHTML = postsHtml; 
+                    loading.style.display = 'none'; 
+                }
+
+            } catch (error) { /* (Error handling) */ }
+        }
+
+        // (Hàm setupAuthUI() giữ nguyên)
+        function setupAuthUI() {
+            if (!auth || !db) { 
+                console.error("Auth hoặc Firestore chưa được khởi tạo.");
+                return;
+            }
+            const authLinksDesktop = document.getElementById('auth-links-desktop');
+            const userProfileDesktop = document.getElementById('user-profile-desktop');
+            const userNameDesktop = document.getElementById('user-name-desktop');
+            const logoutBtnDesktop = document.getElementById('logout-btn-desktop');
+            const authLinksMobile = document.getElementById('auth-links-mobile');
+            const userProfileMobile = document.getElementById('user-profile-mobile');
+            const userNameMobile = document.getElementById('user-name-mobile');
+            const logoutBtnMobile = document.getElementById('logout-btn-mobile');
+            const adminLinkDesktop = document.getElementById('admin-link-desktop');
+            const adminLinkMobile = document.getElementById('admin-link-mobile');
+
+            async function checkUserRole(uid) {
+                if (!uid) return;
+                try {
+                    const userDoc = await db.collection('users').doc(uid).get();
+                    if (userDoc.exists && userDoc.data().role === 'admin') {
+                        if (adminLinkDesktop) adminLinkDesktop.classList.remove('hidden');
+                        if (adminLinkMobile) adminLinkMobile.classList.remove('hidden');
+                    } else {
+                        if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                        if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                    }
+                } catch (error) {
+                    if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                    if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                }
+            }
+
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    const name = user.displayName || "Bạn";
+                    if (userNameDesktop) userNameDesktop.innerText = name;
+                    if (authLinksDesktop) { authLinksDesktop.classList.add('hidden'); authLinksDesktop.classList.remove('md:flex'); }
+                    if (userProfileDesktop) { userProfileDesktop.classList.remove('hidden'); userProfileDesktop.classList.add('md:flex'); }
+                    if (userNameMobile) userNameMobile.innerText = name;
+                    if (authLinksMobile) authLinksMobile.classList.add('hidden');
+                    if (userProfileMobile) userProfileMobile.classList.remove('hidden');
+                    checkUserRole(user.uid);
+                } else {
+                    if (authLinksDesktop) { authLinksDesktop.classList.remove('hidden'); authLinksDesktop.classList.add('md:flex'); }
+                    if (userProfileDesktop) { userProfileDesktop.classList.add('hidden'); userProfileDesktop.classList.remove('md:flex'); }
+                    if (authLinksMobile) authLinksMobile.classList.remove('hidden');
+                    if (userProfileMobile) userProfileMobile.classList.add('hidden');
+                    if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                    if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                }
+            });
+
+            const handleLogout = () => { auth.signOut(); };
+            if (logoutBtnDesktop) logoutBtnDesktop.onclick = handleLogout;
+            if (logoutBtnMobile) logoutBtnMobile.onclick = handleLogout;
+        }
+
+        // (MỚI) Hàm tạo tuyết (Giống minigame.html)
+        function createSnowflakes() {
+            const snowContainer = document.getElementById('snow-container');
+            if (!snowContainer) return; // Dừng nếu không tìm thấy container
+            const snowflakesCount = 30; 
+
+            for (let i = 0; i < snowflakesCount; i++) {
+                const snowflake = document.createElement('span');
+                snowflake.className = 'snowflake';
+                snowflake.innerHTML = '❄️';
+                
+                snowflake.style.left = Math.random() * 100 + 'vw';
+                snowflake.style.animationDuration = (Math.random() * 20 + 10) + 's'; 
+                snowflake.style.animationDelay = Math.random() * 10 + 's'; 
+                snowflake.style.fontSize = (Math.random() * 1 + 0.5) + 'rem'; 
+                snowflake.style.opacity = Math.random() * 0.5 + 0.3; 
+                
+                snowContainer.appendChild(snowflake);
+            }
+        }
+
+        // --- 3. Kích hoạt hàm
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Trang "Bài Viết" (Giao diện Noel) đã tải!');
+            
+            createSnowflakes(); // (MỚI) Tạo tuyết
+            
+            if (typeof firebaseConfig !== 'undefined') {
+                fetchAllPosts(); 
+                setupAuthUI(); 
+            } else { /* (Error handling) */ }
+        });
+
+    </script>
+
+</body>
+</html>

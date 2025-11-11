@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Tiêu đề sẽ được cập nhật bằng JS -->
+    <title>Đang tải chủ đề... - Chill</title> 
+    
+    <!-- 1. TAILWIND CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 2. FIREBASE SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    
+    <!-- 3. KẾT NỐI VỚI FILE KEY.JS -->
+    <script src="key.js"></script>
+
+    <!-- 4. QUILL.JS (RICH TEXT EDITOR) -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    
+    <!-- 5. FEATHER ICONS (cho nút Trích dẫn & Thích) -->
+    <script src="https://unpkg.com/feather-icons"></script>
+
+    <style>
+        /* (CSS chung, font chữ) */
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+        .loader { border-top-color: #0d9488; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* (CSS cho nội dung bài đăng VÀ TRẢ LỜI) */
+        .prose { color: #374151; line-height: 1.75; }
+        .prose p { margin-bottom: 1rem; }
+        .prose ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+        .prose a { color: #0d9488; text-decoration: underline; }
+        .prose blockquote { 
+            border-left: 4px solid #0d9488; 
+            padding: 0.5rem 1rem; 
+            font-style: italic; 
+            color: #555; 
+            margin-bottom: 1rem; 
+            background-color: #f4f4f5; /* bg-gray-100 */
+            border-radius: 0 0.25rem 0.25rem 0;
+            overflow: hidden;
+            word-wrap: break-word;
+        }
+        .prose blockquote blockquote {
+            background-color: #e5e7eb; /* bg-gray-200 */
+            margin-top: 0.5rem;
+        }
+        .prose h1, .prose h2, .prose h3 { font-weight: 700; }
+        
+        /* Tùy chỉnh Quill Editor cho trả lời */
+        #quill-editor-container .ql-toolbar {
+            border-top-left-radius: 0.375rem; 
+            border-top-right-radius: 0.375rem;
+            border-color: #D1D5DB; 
+            background-color: #f9fafb; 
+        }
+        #quill-editor-container .ql-container {
+            border-bottom-left-radius: 0.375rem;
+            border-bottom-right-radius: 0.375rem;
+            border-color: #D1D5DB;
+            min-height: 150px; 
+        }
+        
+        /* CSS cho nút Like */
+        .like-btn.liked {
+            color: #EF4444; /* text-red-500 */
+            fill: #EF4444;
+        }
+        
+        /* (MỚI) Keyframes cho tuyết rơi */
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(360deg); opacity: 0.2; }
+        }
+        .snowflake {
+            position: fixed;
+            top: -10vh;
+            color: #cbd5e1; /* slate-300 */
+            font-size: 1.5rem;
+            animation: fall 15s linear infinite;
+            pointer-events: none;
+            z-index: 9999; /* Luôn ở trên cùng */
+        }
+    </style>
+</head>
+
+<!-- (CẬP NHẬT) Giao diện nền Noel -->
+<body class="bg-gradient-to-b from-white via-red-50 to-white text-slate-700">
+
+    <!-- (MỚI) Container cho Tuyết rơi -->
+    <div id="snow-container" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <!-- NAVBAR ĐẦY ĐỦ -->
+    <header class="bg-white/95 backdrop-blur-sm shadow-sm sticky top-0 z-40">
+        <nav class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
+            <a href="index.html" class="text-3xl font-extrabold text-teal-600 transition-transform duration-300 hover:scale-105">
+                Chill
+            </a>
+            
+            <div class="hidden md:flex items-center space-x-1">
+                <a href="index.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Trang chủ</a>
+                <a href="baiviet.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Bài Viết</a>
+                <a href="minigame.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Minigame</a>
+                <!-- (CẬP NHẬT) Link active màu đỏ -->
+                <a href="diendan.html" class="px-3 py-2 rounded-md font-semibold text-red-600">Diễn đàn</a>
+            </div>
+            
+            <div id="auth-links-desktop" class="items-center space-x-2">
+                 <a href="login.html" class="px-4 py-2 text-sm font-medium text-teal-600 border border-teal-600 rounded-lg hover:bg-teal-50 transition duration-300">Đăng nhập</a>
+                 <a href="register.html" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700">Đăng ký</a>
+            </div>
+            <div id="user-profile-desktop" class="items-center space-x-3">
+                 <span class="font-medium text-slate-700">Chào, <span id="user-name-desktop" class="font-bold text-teal-600">User</span></span>
+                 <a id="admin-link-desktop" href="admin.html" class="hidden px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">Trang Admin</a>
+                 <button id="logout-btn-desktop" class="px-3 py-2 text-sm font-medium text-red-600 border border-red-600 rounded-lg hover:bg-red-50">Đăng xuất</button>
+            </div>
+
+            <div class="md:hidden">
+                <button id="mobile-menu-button" class="text-slate-700 hover:text-teal-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
+            </div>
+        </nav>
+        
+        <div id="mobile-menu" class="md:hidden hidden bg-white shadow-lg">
+             <a href="index.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Trang chủ</a>
+            <a href="baiviet.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Bài Viết</a>
+            <a href="minigame.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Minigame</a>
+            <a href="diendan.html" class="block px-4 py-3 text-base font-semibold text-red-600">Diễn đàn</a>
+            
+            <div id="auth-links-mobile" class="border-t border-slate-200 px-4 py-3 space-y-2">
+                <a href="register.html" class="block w-full text-center px-4 py-2 text-base font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg">Đăng ký</a>
+                <a href="login.html" class="block w-full text-center px-4 py-2 text-base font-medium text-teal-600 bg-teal-50 rounded-lg">Đăng nhập</a>
+            </div>
+            <div id="user-profile-mobile" class="hidden border-t border-slate-200 px-4 py-3">
+                <div class="mb-2"><span class="font-medium text-slate-700">Chào, <span id="user-name-mobile" class="font-bold text-teal-600">User</span></span></div>
+                <a id="admin-link-mobile" href="admin.html" class="hidden block w-full text-center px-4 py-2 text-base font-medium text-white bg-red-600 rounded-lg mb-2">Trang Admin</a>
+                <button id="logout-btn-mobile" class="block w-full text-center px-4 py-2 text-base font-medium text-red-600 bg-red-50 rounded-lg">Đăng xuất</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========= MAIN CONTENT (Bố cục 2 cột) ========= -->
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
+        
+        <!-- Trạng thái Tải dữ liệu chủ đề -->
+        <div id="topic-loading" class="text-center text-slate-500 py-20">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mx-auto mb-4"></div>
+            <p>Đang tải chủ đề...</p>
+        </div>
+        
+        <!-- Khu vực chứa chủ đề chính (Bố cục 2 cột) -->
+        <article id="topic-container" class="hidden">
+            <!-- Tiêu đề (hiển thị trên mobile) -->
+            <h1 id="topic-title-mobile" class="md:hidden text-3xl font-extrabold text-slate-900 tracking-tight mb-4"></h1>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- Cột 1: Thông tin Tác giả -->
+                <div class="md:col-span-1">
+                    <div class="sticky top-24 p-4 bg-gray-50 rounded-lg text-center shadow-sm border">
+                        <div id="topic-author-avatar" class="h-20 w-20 rounded-full bg-teal-500 text-white flex items-center justify-center font-bold text-3xl mx-auto shadow-inner"></div>
+                        <h3 id="topic-author-name" class="font-bold text-teal-700 mt-3 text-lg"></h3>
+                        <p id="topic-author-role" class="text-sm text-gray-500 capitalize"></p>
+                    </div>
+                </div>
+
+                <!-- Cột 2: Nội dung Chủ đề -->
+                <div class="md:col-span-3">
+                    <div class="bg-white p-6 sm:p-8 rounded-lg shadow-lg border-2 border-teal-500">
+                        <div id="topic-admin-actions" class="hidden float-right">
+                            <button id="delete-topic-btn" class="flex items-center text-xs font-semibold text-red-500 hover:text-red-700">
+                                <i data-feather="trash-2" class="w-3 h-3 mr-1"></i> Xóa Chủ Đề
+                            </button>
+                        </div>
+                        
+                        <h1 id="topic-title" class="hidden md:block text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight"></h1>
+                        <p id="topic-date" class="text-sm text-slate-500 mt-2 mb-6"></p>
+                        <hr class="mb-6">
+                        <div id="topic-content" class="prose max-w-none">
+                            <!-- Nội dung (HTML) từ Firebase sẽ được chèn vào đây -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+        
+    </main>
+    
+    <!-- KHU VỰC TRẢ LỜI (REPLIES) -->
+    <section id="replies-section" class="hidden max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <h2 class="text-2xl font-bold text-slate-900 mb-6">
+            Trả lời
+        </h2>
+        
+        <!-- 1. Danh sách trả lời (tải động) -->
+        <div id="replies-list" class="space-y-8">
+            <!-- JS sẽ chèn các card trả lời vào đây -->
+        </div>
+        
+        <!-- 2. Trạng thái tải trả lời -->
+        <div id="replies-loading" class="text-center text-slate-500 py-10">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-8 w-8 mx-auto mb-3"></div>
+            <p>Đang tải các trả lời...</p>
+        </div>
+        
+        <hr class="my-10">
+
+        <!-- 3. Form để gửi trả lời (yêu cầu đăng nhập) -->
+        <div id="reply-form-container">
+            <form id="reply-form" class="hidden grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- Avatar người dùng hiện tại -->
+                <div class="md:col-span-1 text-center md:text-left">
+                    <div id="reply-user-avatar" class="h-12 w-12 rounded-full bg-cyan-500 text-white flex items-center justify-center font-semibold mx-auto">
+                        <!-- JS -->
+                    </div>
+                </div>
+                <!-- Ô nhập liệu Quill -->
+                <div class="md:col-span-3">
+                    <div class="bg-white p-5 rounded-lg shadow-md border">
+                        <h3 class="text-lg font-semibold text-slate-800 mb-4">Viết trả lời của bạn</h3>
+                        <div id="quill-editor-container">
+                            <div id="quill-editor"></div>
+                        </div>
+                        <div class="mt-3 text-right">
+                            <button type="submit" class="px-5 py-2 font-semibold text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all duration-300">
+                                Gửi trả lời
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            
+            <div id="login-prompt">
+                <p class="text-center text-slate-600 bg-gray-100 p-6 rounded-lg shadow-sm border">
+                    Vui lòng 
+                    <a href="login.html" class="font-semibold text-teal-600 hover:underline">đăng nhập</a>
+                    để trả lời chủ đề này.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER ĐẦY ĐỦ -->
+    <footer class="bg-white border-t border-gray-200 mt-16">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                <div>
+                    <a href="index.html" class="text-2xl font-extrabold text-teal-600">
+                        Chill
+                    </a>
+                    <p class="mt-1 text-sm text-slate-500">Hội "Deal" Gọn Sống "Chill"</p>
+                </div>
+                <div class="flex space-x-6 text-sm font-medium text-slate-600">
+                    <a href="baiviet.html" class="hover:text-teal-600">Bài Viết</a>
+                    <a href="minigame.html" class="hover:text-teal-600">Minigame</a>
+                    <a href="diendan.html" class="hover:text-teal-600">Diễn đàn</a>
+                </div>
+            </div>
+            <div class="mt-8 text-center text-xs text-slate-400">
+                &copy; 2025. Phát triển bởi Thông.
+            </div>
+        </div>
+    </footer>
+
+    <!-- 
+      ==================================================================
+      PHẦN JAVASCRIPT
+      ==================================================================
+    -->
+    <script>
+        // --- 1. Logic cho Menu Mobile ---
+        const menuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        
+        if (menuButton) {
+            menuButton.addEventListener('click', () => {
+                if (mobileMenu) {
+                    mobileMenu.classList.toggle('hidden');
+                }
+            });
+        }
+
+        // --- 2. Logic Firebase (Khởi tạo) ---
+        let db;
+        let auth;
+        let currentUser = null; 
+        let quill; 
+        let isCurrentUserAdmin = false; 
+        
+        // (MỚI) Biến toàn cục để lưu thời gian của bình luận cuối cùng
+        let latestReplyTimestamp = null;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch (e) {
+            console.error("Lỗi khởi tạo Firebase: ", e);
+            document.getElementById('topic-loading').innerHTML = "Lỗi tải config. Hãy kiểm tra console (F12).";
+        }
+        
+        // --- 3. Logic Auth/Admin ---
+        function setupAuthUI() {
+            if (!auth || !db) { return; }
+            const authLinksDesktop = document.getElementById('auth-links-desktop');
+            const userProfileDesktop = document.getElementById('user-profile-desktop');
+            const userNameDesktop = document.getElementById('user-name-desktop');
+            const logoutBtnDesktop = document.getElementById('logout-btn-desktop');
+            const authLinksMobile = document.getElementById('auth-links-mobile');
+            const userProfileMobile = document.getElementById('user-profile-mobile');
+            const userNameMobile = document.getElementById('user-name-mobile');
+            const logoutBtnMobile = document.getElementById('logout-btn-mobile');
+            const adminLinkDesktop = document.getElementById('admin-link-desktop');
+            const adminLinkMobile = document.getElementById('admin-link-mobile');
+
+            async function checkUserRole(uid) {
+                if (!uid) {
+                    isCurrentUserAdmin = false; 
+                    return;
+                }
+                try {
+                    const userDoc = await db.collection('users').doc(uid).get();
+                    if (userDoc.exists && userDoc.data().role === 'admin') {
+                        if (adminLinkDesktop) adminLinkDesktop.classList.remove('hidden');
+                        if (adminLinkMobile) adminLinkMobile.classList.remove('hidden');
+                        isCurrentUserAdmin = true; 
+                    } else {
+                        if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                        if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                        isCurrentUserAdmin = false; 
+                    }
+                } catch (error) {
+                    if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                    if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                    isCurrentUserAdmin = false; 
+                }
+            }
+
+            auth.onAuthStateChanged(async (user) => { 
+                if (user) {
+                    currentUser = user; // Gán currentUser ở đây
+                    const name = user.displayName || "Bạn";
+                    if (userNameDesktop) userNameDesktop.innerText = name;
+                    if (authLinksDesktop) { authLinksDesktop.classList.add('hidden'); authLinksDesktop.classList.remove('md:flex'); }
+                    if (userProfileDesktop) { userProfileDesktop.classList.remove('hidden'); userProfileDesktop.classList.add('md:flex'); }
+                    if (userNameMobile) userNameMobile.innerText = name;
+                    if (authLinksMobile) authLinksMobile.classList.add('hidden');
+                    if (userProfileMobile) userProfileMobile.classList.remove('hidden');
+                    
+                    await checkUserRole(user.uid); 
+                    
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const topicId = urlParams.get('id');
+                    if (topicId) {
+                        fetchTopic(topicId); 
+                        listenForReplies(topicId); 
+                    }
+
+                } else {
+                    currentUser = null; // Gán currentUser = null
+                    if (authLinksDesktop) { authLinksDesktop.classList.remove('hidden'); authLinksDesktop.classList.add('md:flex'); }
+                    if (userProfileDesktop) { userProfileDesktop.classList.add('hidden'); userProfileDesktop.classList.remove('md:flex'); }
+                    if (authLinksMobile) authLinksMobile.classList.remove('hidden');
+                    if (userProfileMobile) userProfileMobile.classList.add('hidden');
+                    if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                    if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                    isCurrentUserAdmin = false; 
+                }
+            });
+
+            if(logoutBtnDesktop) logoutBtnDesktop.onclick = () => { auth.signOut(); };
+            if(logoutBtnMobile) logoutBtnMobile.onclick = () => { auth.signOut(); };
+        }
+        
+        // --- 4. Logic Tải Dữ liệu Trang ---
+        
+        // (SỬA LỖI) Dùng lại định dạng ngày giờ đầy đủ
+        function formatFullDate(timestamp) {
+             if (!timestamp) return 'Vừa xong';
+             const date = timestamp.toDate();
+             return date.toLocaleDateString('vi-VN', {
+                day: '2-digit', month: '2-digit', year: 'numeric', 
+                hour: '2-digit', minute: '2-digit'
+             });
+        }
+
+        /**
+         * (Hàm tải 1 chủ đề - topic)
+         */
+        async function fetchTopic(topicId) {
+            const container = document.getElementById('topic-container');
+            const loading = document.getElementById('topic-loading');
+
+            try {
+                const docRef = db.collection("topics").doc(topicId);
+                const doc = await docRef.get();
+
+                if (doc.exists) {
+                    const topic = doc.data();
+                    
+                    document.title = `${topic.title} - Chill`; 
+                    document.getElementById('topic-title').innerText = topic.title || 'Không có tiêu đề';
+                    document.getElementById('topic-title-mobile').innerText = topic.title || 'Không có tiêu đề';
+                    document.getElementById('topic-content').innerHTML = topic.content || '<p>Nội dung đang được cập nhật...</p>';
+                    
+                    document.getElementById('topic-date').innerText = `Đăng vào ngày ${formatFullDate(topic.createdAt)}`;
+                    
+                    // Ghi đè mốc thời gian
+                    latestReplyTimestamp = topic.createdAt; 
+                    
+                    const authorName = topic.authorName || 'Người dùng';
+                    document.getElementById('topic-author-name').innerText = authorName;
+                    document.getElementById('topic-author-avatar').innerText = authorName.charAt(0).toUpperCase();
+                    
+                    const adminActions = document.getElementById('topic-admin-actions');
+                    if (isCurrentUserAdmin) {
+                        adminActions.classList.remove('hidden');
+                        document.getElementById('delete-topic-btn').onclick = () => deleteTopic(topicId);
+                    } else {
+                        adminActions.classList.add('hidden');
+                    }
+                    
+                    if (topic.authorId) {
+                        try {
+                            const userDoc = await db.collection('users').doc(topic.authorId).get();
+                            let role = 'Thành viên'; 
+                            if (userDoc.exists && userDoc.data().role) {
+                                if (userDoc.data().role === 'admin') role = 'Admin';
+                            }
+                            document.getElementById('topic-author-role').innerHTML = 
+                                `<span class="text-xs font-bold text-white bg-teal-600 px-2 py-0.5 rounded-full">Tác giả</span>` +
+                                (role === 'Admin' ? ` <span class="text-xs font-bold text-white bg-red-600 px-2 py-0.5 rounded-full">Admin</span>` : '');
+                        } catch (userError) {
+                            document.getElementById('topic-author-role').innerHTML = `<span class="text-xs font-bold text-white bg-teal-600 px-2 py-0.5 rounded-full">Tác giả</span>`;
+                        }
+                    }
+
+                    loading.style.display = 'none';
+                    container.classList.remove('hidden');
+                    document.getElementById('replies-section').classList.remove('hidden'); 
+
+                } else {
+                    console.error("Không tìm thấy chủ đề!");
+                    loading.innerHTML = `
+                        <h2 class="text-2xl font-bold text-red-600">Lỗi 404</h2>
+                        <p class="mt-2">Không tìm thấy chủ đề bạn yêu cầu.</p>
+                        <a href="diendan.html" class="inline-block mt-4 px-4 py-2 text-white bg-teal-600 rounded-lg">Quay lại danh sách</a>
+                    `;
+                }
+            } catch (error) {
+                console.error("Lỗi tải chủ đề: ", error);
+                loading.innerText = "Không thể tải chủ đề.";
+            }
+        }
+
+        /**
+         * (Hàm lắng nghe - replies)
+         */
+        function listenForReplies(topicId) {
+            const list = document.getElementById('replies-list');
+            const loading = document.getElementById('replies-loading');
+
+            const repliesRef = db.collection("topics").doc(topicId).collection("replies")
+                                .orderBy("createdAt", "asc"); 
+            
+            repliesRef.onSnapshot(querySnapshot => {
+                let repliesHtml = '';
+                if (querySnapshot.empty) {
+                    loading.innerText = 'Chưa có trả lời nào. Hãy là người đầu tiên!';
+                    // (Không cập nhật latestReplyTimestamp, giữ mốc của chủ đề)
+                } else {
+                    let replyCounter = 1;
+                    
+                    querySnapshot.forEach(doc => {
+                        const reply = doc.data();
+                        const replyId = doc.id;
+                        
+                        const formattedDate = formatFullDate(reply.createdAt);
+                        
+                        const authorName = reply.authorName || 'Người dùng';
+                        const authorInitial = authorName.charAt(0).toUpperCase();
+                        
+                        const safeContent = reply.content
+                            ? reply.content.replace(/'/g, "&apos;").replace(/"/g, "&quot;")
+                            : "";
+
+                        const likeCount = reply.likeCount || 0;
+                        const isLiked = (currentUser && reply.likedBy && reply.likedBy.includes(currentUser.uid));
+                        const likeIcon = isLiked 
+                            ? '<i data-feather="heart" class="w-4 h-4 text-red-500" style="fill: #EF4444;"></i>' 
+                            : '<i data-feather="heart" class="w-4 h-4"></i>';
+                        const likeButtonClass = isLiked ? 'like-btn liked' : 'like-btn';
+                        
+                        let adminButtonsHtml = '';
+                        if (isCurrentUserAdmin) {
+                            adminButtonsHtml = `
+                                <button onclick="deleteReply('${topicId}', '${replyId}')" 
+                                        class="flex items-center text-xs font-semibold text-red-500 hover:text-red-700 ml-3">
+                                    <i data-feather="trash-2" class="w-3 h-3 mr-1"></i> Xóa
+                                </button>
+                            `;
+                        }
+
+                        // Card HTML 2 cột
+                        repliesHtml += `
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                <!-- Cột 1: Tác giả Reply -->
+                                <div class="md:col-span-1">
+                                    <div class="p-3 bg-gray-50 rounded-lg text-center shadow-sm border">
+                                        <div class="h-12 w-12 rounded-full bg-cyan-500 text-white flex items-center justify-center font-semibold mx-auto shadow-inner">
+                                            ${authorInitial}
+                                        </div>
+                                        <div class="font-semibold mt-2 text-cyan-700 text-sm">${authorName}</div>
+                                        <div id="reply-role-${doc.id}" class="text-xs text-gray-500 capitalize">Thành viên</div>
+                                    </div>
+                                </div>
+                                <!-- Cột 2: Nội dung Reply -->
+                                <div class="md:col-span-3">
+                                    <div class="bg-white p-5 rounded-lg shadow-md border h-full flex flex-col">
+                                        <!-- Header: Ngày + Nút -->
+                                        <div class="flex justify-between items-center mb-3">
+                                            <p class="text-xs text-gray-500">
+                                                ${formattedDate} 
+                                                <span class="font-bold text-gray-400 ml-2">#${replyCounter + 1}</span>
+                                            </p>
+                                            <div class="flex items-center">
+                                                <button class="quote-btn flex items-center text-xs font-semibold text-teal-600 hover:text-teal-800"
+                                                        data-name="${authorName}"
+                                                        data-content="${safeContent}">
+                                                    <i data-feather="corner-up-left" class="w-3 h-3 mr-1"></i> Trích dẫn
+                                                </button>
+                                                ${adminButtonsHtml}
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Nội dung -->
+                                        <div class="prose prose-sm max-w-none flex-grow">
+                                            ${reply.content || ''}
+                                        </div>
+                                        
+                                        <!-- Footer: Nút Like -->
+                                        <div class="mt-4 pt-3 border-t border-gray-100">
+                                            <button onclick="handleLike('${topicId}', '${replyId}')" 
+                                                    class="${likeButtonClass} flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-red-500 transition-colors">
+                                                ${likeIcon}
+                                                <span id="like-count-${replyId}">${likeCount}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        // (MỚI) Cập nhật mốc thời gian của bình luận cuối cùng
+                        if (replyCounter === querySnapshot.size) { // Nếu là doc cuối cùng
+                            latestReplyTimestamp = reply.createdAt;
+                        }
+
+                        // Tải vai trò (bất đồng bộ)
+                        if (reply.authorId) {
+                            db.collection('users').doc(reply.authorId).get().then(userDoc => {
+                                let role = 'Thành viên';
+                                if (userDoc.exists && userDoc.data().role === 'admin') {
+                                    role = '<span class="text-xs font-bold text-white bg-red-600 px-2 py-0.5 rounded-full">Admin</span>';
+                                }
+                                const roleEl = document.getElementById(`reply-role-${doc.id}`);
+                                if(roleEl) roleEl.innerHTML = role;
+                            }).catch(() => {});
+                        }
+                        replyCounter++;
+                    });
+                    
+                    list.innerHTML = repliesHtml;
+                    loading.style.display = 'none';
+                    
+                    feather.replace(); 
+                    attachQuoteButtonListeners();
+                }
+            }, error => {
+                console.error("Lỗi tải trả lời: ", error);
+                loading.innerText = "Không thể tải các trả lời.";
+            });
+        }
+        
+        /**
+         * (Hàm gắn sự kiện trích dẫn)
+         */
+        function attachQuoteButtonListeners() {
+            const quoteButtons = document.querySelectorAll('.quote-btn');
+            const replyForm = document.getElementById('reply-form-container');
+            
+            quoteButtons.forEach(button => {
+                button.onclick = () => {
+                    if (!currentUser || !quill) {
+                        alert("Vui lòng đăng nhập để trích dẫn.");
+                        return;
+                    }
+                    
+                    const name = button.dataset.name;
+                    const content = button.dataset.content;
+                    
+                    const quoteHtml = `<blockquote><p><strong>@${name}</strong> đã viết:</p>${content}</blockquote><p><br></p>`;
+                    
+                    quill.root.innerHTML = quoteHtml;
+                    
+                    replyForm.scrollIntoView({ behavior: 'smooth' });
+                    quill.focus();
+                };
+            });
+        }
+
+        /**
+         * (CẬP NHẬT) Hàm gửi trả lời (Sửa lỗi "Fake Time")
+         */
+        async function handleReplySubmit(topicId) { 
+            
+            if (!currentUser || !quill) {
+                alert("Bạn phải đăng nhập để trả lời!");
+                return;
+            }
+
+            const content = quill.root.innerHTML.trim(); 
+            const textOnly = quill.getText().trim(); 
+
+            if (textOnly.length === 0) {
+                alert("Vui lòng nhập nội dung trả lời.");
+                return;
+            }
+            
+            const form = document.getElementById('reply-form');
+            const submitButton = form.querySelector('button[type="submit"]');
+            
+            submitButton.disabled = true;
+            submitButton.innerText = "Đang gửi...";
+
+            try {
+                // (MỚI) Logic quyết định thời gian
+                let finalReplyTimestamp;
+                const now = new Date();
+                
+                // Nếu mốc thời gian cuối cùng (của seeding) ở TƯƠNG LAI
+                if (latestReplyTimestamp && latestReplyTimestamp.toDate() > now) {
+                    // Tạo một ngày giờ "fake" mới (5 phút sau bình luận cuối)
+                    const newFakeDate = new Date(latestReplyTimestamp.toDate().getTime() + 5 * 60 * 1000);
+                    finalReplyTimestamp = firebase.firestore.Timestamp.fromDate(newFakeDate);
+                } else {
+                    // Nếu không, dùng thời gian thật
+                    finalReplyTimestamp = firebase.firestore.FieldValue.serverTimestamp();
+                }
+
+                await db.collection("topics").doc(topicId).collection("replies").add({
+                    content: content, 
+                    authorName: currentUser.displayName || "Người dùng ẩn danh",
+                    authorId: currentUser.uid,
+                    createdAt: finalReplyTimestamp, // (SỬA) Dùng timestamp đã quyết định
+                    likedBy: [], 
+                    likeCount: 0 
+                });
+                
+                const topicRef = db.collection("topics").doc(topicId);
+                await topicRef.update({
+                    lastReplyAt: finalReplyTimestamp, // (SỬA) Dùng timestamp đã quyết định
+                    replyCount: firebase.firestore.FieldValue.increment(1) 
+                });
+
+                quill.root.innerHTML = ''; 
+                submitButton.disabled = false;
+                submitButton.innerText = "Gửi trả lời";
+
+            } catch (error) {
+                console.error("Lỗi gửi trả lời: ", error);
+                alert("Đã xảy ra lỗi khi gửi trả lời của bạn.");
+                submitButton.disabled = false;
+                submitButton.innerText = "Gửi trả lời";
+            }
+        }
+        
+        /**
+         * (Hàm xử lý Thích - Like)
+         */
+        async function handleLike(topicId, replyId) {
+            if (!currentUser) {
+                alert("Vui lòng đăng nhập để Thích bình luận!");
+                return;
+            }
+            
+            const replyRef = db.collection('topics').doc(topicId).collection('replies').doc(replyId);
+            const uid = currentUser.uid;
+
+            try {
+                await db.runTransaction(async (transaction) => {
+                    const replyDoc = await transaction.get(replyRef);
+                    if (!replyDoc.exists) {
+                        throw "Bình luận không tồn tại!";
+                    }
+                    
+                    const data = replyDoc.data();
+                    const likedBy = data.likedBy || [];
+                    
+                    if (likedBy.includes(uid)) {
+                        // Đã Thích -> Bỏ Thích
+                        transaction.update(replyRef, {
+                            likedBy: firebase.firestore.FieldValue.arrayRemove(uid),
+                            likeCount: firebase.firestore.FieldValue.increment(-1)
+                        });
+                    } else {
+                        // Chưa Thích -> Thích
+                        transaction.update(replyRef, {
+                            likedBy: firebase.firestore.FieldValue.arrayUnion(uid),
+                            likeCount: firebase.firestore.FieldValue.increment(1)
+                        });
+                    }
+                });
+                
+            } catch (error) {
+                console.error("Lỗi khi Thích:", error);
+                alert("Đã xảy ra lỗi khi Thích. Vui lòng thử lại.");
+            }
+        }
+        
+        // --- 5. HÀM XÓA (cho Admin) ---
+
+        async function deleteReply(topicId, replyId) {
+            if (!isCurrentUserAdmin) {
+                alert("Bạn không có quyền xóa!");
+                return;
+            }
+            if (!confirm("Bạn có chắc muốn xóa trả lời này không?")) {
+                return;
+            }
+
+            const topicRef = db.collection('topics').doc(topicId);
+            const replyRef = topicRef.collection('replies').doc(replyId);
+            
+            try {
+                await db.runTransaction(async (transaction) => {
+                    const topicDoc = await transaction.get(topicRef);
+                    if (!topicDoc.exists) throw "Chủ đề không tồn tại!";
+                    
+                    transaction.delete(replyRef);
+                    
+                    transaction.update(topicRef, {
+                        replyCount: firebase.firestore.FieldValue.increment(-1)
+                    });
+                });
+            } catch (error) {
+                console.error("Lỗi khi xóa trả lời:", error);
+                alert("Đã xảy ra lỗi khi xóa.");
+            }
+        }
+
+        async function deleteTopic(topicId) {
+            if (!isCurrentUserAdmin) {
+                alert("Bạn không có quyền xóa!");
+                return;
+            }
+            if (confirm(`Bạn có chắc muốn xóa vĩnh viễn chủ đề này VÀ TẤT CẢ CÁC TRẢ LỜI bên trong không?\n\nHành động này không thể hoàn tác.`)) {
+                
+                document.getElementById('topic-loading').style.display = 'block';
+                document.getElementById('topic-container').style.display = 'none';
+                document.getElementById('replies-section').style.display = 'none';
+
+                try {
+                    const repliesQuery = db.collection('topics').doc(topicId).collection('replies').limit(500);
+                    await deleteQueryBatch(db, repliesQuery); // Xóa subcollection
+                    
+                    await db.collection('topics').doc(topicId).delete(); // Xóa document cha
+
+                    alert("Xóa chủ đề thành công!");
+                    window.location.href = 'diendan.html'; // Quay về trang diễn đàn
+
+                } catch (error) {
+                    console.error("Lỗi khi xóa chủ đề:", error);
+                    alert("Đã xảy ra lỗi khi xóa. Vui lòng kiểm tra Console (F12).");
+                    document.getElementById('topic-loading').style.display = 'none'; // Ẩn loading
+                }
+            }
+        }
+        
+        async function deleteQueryBatch(db, query) {
+            const snapshot = await query.get();
+            if (snapshot.size === 0) return;
+            
+            const batch = db.batch();
+            snapshot.docs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+            
+            if (snapshot.size > 0) {
+                await deleteQueryBatch(db, query);
+            }
+        }
+
+
+        /**
+         * (Hàm setup Auth/Reply)
+         */
+        function setupAuthAndReply(topicId) {
+            const form = document.getElementById('reply-form');
+            const loginPrompt = document.getElementById('login-prompt');
+            
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    // (SỬA LỖI) Đã chuyển gán currentUser lên hàm Auth chính
+                    loginPrompt.style.display = 'none'; 
+                    form.classList.remove('hidden');
+                    form.classList.add('grid');
+                    
+                    const name = user.displayName || 'User';
+                    const initial = name.charAt(0).toUpperCase();
+                    document.getElementById('reply-user-avatar').innerText = initial;
+                    
+                    if (!quill) {
+                        quill = new Quill('#quill-editor', {
+                            theme: 'snow',
+                            modules: {
+                                toolbar: [
+                                    ['bold', 'italic', 'underline'],
+                                    ['blockquote', { 'list': 'bullet' }],
+                                    ['clean']
+                                ]
+                            },
+                            placeholder: 'Viết trả lời của bạn...'
+                        });
+                    }
+                    
+                } else {
+                    loginPrompt.style.display = 'block'; 
+                    form.classList.add('hidden'); 
+                    form.classList.remove('grid');
+                    
+                    if (quill) {
+                        quill = null;
+                    }
+                }
+            });
+        }
+
+        // --- 6. Kích hoạt khi trang tải xong ---
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Trang "Xem Chủ đề" (v9 - Sửa lỗi Fake Time Reply) đã tải!');
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const topicId = urlParams.get('id'); 
+            const form = document.getElementById('reply-form'); 
+
+            if (topicId && db && auth) {
+                setupAuthUI();      
+                setupAuthAndReply(topicId);
+                
+                if (form) {
+                    form.onsubmit = (e) => {
+                        e.preventDefault(); 
+                        handleReplySubmit(topicId); 
+                    };
+                }
+                
+                // (Sửa) Bỏ các lệnh gọi fetch/listen ở đây,
+                // vì setupAuthUI() sẽ gọi chúng sau khi biết user role
+                
+            } else if (!topicId) {
+                document.getElementById('topic-loading').innerHTML = `
+                    <h2 class="text-2xl font-bold text-red-600">Lỗi</h2>
+                    <p class="mt-2">Không có ID chủ đề nào được cung cấp.</p>
+                    <a href="diendan.html" class="inline-block mt-4 px-4 py-2 text-white bg-teal-600 rounded-lg">Quay lại danh sách</a>
+                `;
+                document.getElementById('replies-section').style.display = 'none';
+            } else {
+                console.error("Lỗi: Firebase chưa sẵn sàng hoặc không có Topic ID.");
+            }
+            
+            createSnowflakes(); // (MỚI) Tạo tuyết
+            feather.replace();
+        });
+        
+        // (MỚI) Hàm tạo tuyết
+        function createSnowflakes() {
+            const snowContainer = document.getElementById('snow-container');
+            if (!snowContainer) return; 
+            const snowflakesCount = 30; 
+
+            for (let i = 0; i < snowflakesCount; i++) {
+                const snowflake = document.createElement('span');
+                snowflake.className = 'snowflake';
+                snowflake.innerHTML = '❄️';
+                
+                snowflake.style.left = Math.random() * 100 + 'vw';
+                snowflake.style.animationDuration = (Math.random() * 20 + 10) + 's'; 
+                snowflake.style.animationDelay = Math.random() * 10 + 's'; 
+                snowflake.style.fontSize = (Math.random() * 1 + 0.5) + 'rem'; 
+                snowflake.style.opacity = Math.random() * 0.5 + 0.3; 
+                
+                snowContainer.appendChild(snowflake);
+            }
+        }
+
+    </script>
+
+</body>
+</html>

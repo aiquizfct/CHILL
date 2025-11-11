@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tạo chủ đề mới - Chill</title> 
+    
+    <!-- 1. TAILWIND CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 2. FIREBASE SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    
+    <!-- 3. KẾT NỐI VỚI FILE KEY.JS -->
+    <script src="key.js"></script>
+
+    <!-- 4. QUILL.JS (RICH TEXT EDITOR) -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    
+    <!-- 5. FEATHER ICONS -->
+    <script src="https://unpkg.com/feather-icons"></script>
+
+    <style>
+        /* (CSS chung, font chữ) */
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+        .loader { border-top-color: #0d9488; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* (MỚI) Keyframes cho tuyết rơi (Giống minigame.html) */
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(360deg); opacity: 0.2; }
+        }
+        .snowflake {
+            position: fixed;
+            top: -10vh;
+            color: #cbd5e1; /* slate-300 */
+            font-size: 1.5rem;
+            animation: fall 15s linear infinite;
+            pointer-events: none;
+            z-index: 9999; /* Luôn ở trên cùng */
+        }
+        
+        /* Tùy chỉnh Quill Editor */
+        #quill-editor-container .ql-toolbar {
+            border-top-left-radius: 0.375rem; /* rounded-md */
+            border-top-right-radius: 0.375rem;
+            border-color: #D1D5DB; /* border-gray-300 */
+        }
+        #quill-editor-container .ql-container {
+            border-bottom-left-radius: 0.375rem;
+            border-bottom-right-radius: 0.375rem;
+            border-color: #D1D5DB;
+            min-height: 200px;
+        }
+    </style>
+</head>
+
+<!-- (CẬP NHẬT) Giao diện nền sáng (màu Noel) -->
+<body class="bg-gradient-to-b from-white via-red-50 to-white text-slate-700">
+
+    <!-- (MỚI) Container cho Tuyết rơi -->
+    <div id="snow-container" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <!-- ========= NAVBAR (THANH ĐIỀU HƯỚNG) ========= -->
+    <header class="bg-white/95 backdrop-blur-sm shadow-sm sticky top-0 z-40">
+        <nav class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
+            <a href="index.html" class="text-3xl font-extrabold text-teal-600 transition-transform duration-300 hover:scale-105">
+                Chill
+            </a>
+            
+            <!-- Đánh dấu "Diễn đàn" là trang cha -->
+            <div class="hidden md:flex items-center space-x-1">
+                <a href="index.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Trang chủ</a>
+                <a href="baiviet.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Bài Viết</a>
+                <a href="minigame.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Minigame</a>
+                <!-- (CẬP NHẬT) Link active màu đỏ -->
+                <a href="diendan.html" class="px-3 py-2 rounded-md font-semibold text-red-600">Diễn đàn</a>
+            </div>
+            
+            <!-- Khối Auth/Admin (giống hệt index.html) -->
+            <div id="auth-links-desktop" class="items-center space-x-2">
+                 <a href="login.html" class="px-4 py-2 text-sm font-medium text-teal-600 border border-teal-600 rounded-lg hover:bg-teal-50 transition duration-300">Đăng nhập</a>
+                 <a href="register.html" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700">Đăng ký</a>
+            </div>
+            <div id="user-profile-desktop" class="items-center space-x-3">
+                 <span class="font-medium text-slate-700">Chào, <span id="user-name-desktop" class="font-bold text-teal-600">User</span></span>
+                 <a id="admin-link-desktop" href="admin.html" class="hidden px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">Trang Admin</a>
+                 <button id="logout-btn-desktop" class="px-3 py-2 text-sm font-medium text-red-600 border border-red-600 rounded-lg hover:bg-red-50">Đăng xuất</button>
+            </div>
+
+            <div class="md:hidden">
+                <button id="mobile-menu-button" class="text-slate-700 hover:text-teal-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
+            </div>
+        </nav>
+        
+        <!-- Menu mobile Auth/Admin -->
+        <div id="mobile-menu" class="md:hidden hidden bg-white shadow-lg">
+             <a href="index.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Trang chủ</a>
+            <a href="baiviet.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Bài Viết</a>
+            <a href="minigame.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Minigame</a>
+            <a href="diendan.html" class="block px-4 py-3 text-base font-semibold text-red-600">Diễn đàn</a> <!-- (CẬP NHẬT) Màu đỏ -->
+            
+            <div id="auth-links-mobile" class="border-t border-slate-200 px-4 py-3 space-y-2">
+                <a href="register.html" class="block w-full text-center px-4 py-2 text-base font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg">Đăng ký</a>
+                <a href="login.html" class="block w-full text-center px-4 py-2 text-base font-medium text-teal-600 bg-teal-50 rounded-lg">Đăng nhập</a>
+            </div>
+            <div id="user-profile-mobile" class="hidden border-t border-slate-200 px-4 py-3">
+                <div class="mb-2"><span class="font-medium text-slate-700">Chào, <span id="user-name-mobile" class="font-bold text-teal-600">User</span></span></div>
+                <a id="admin-link-mobile" href="admin.html" class="hidden block w-full text-center px-4 py-2 text-base font-medium text-white bg-red-600 rounded-lg mb-2">Trang Admin</a>
+                <button id="logout-btn-mobile" class="block w-full text-center px-4 py-2 text-base font-medium text-red-600 bg-red-50 rounded-lg">Đăng xuất</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========= MAIN CONTENT (NỘI DUNG CHÍNH) ========= -->
+    <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        
+        <!-- Trạng thái Loading / Chuyển hướng -->
+        <div id="page-loader" class="text-center text-slate-500 py-20">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mx-auto mb-4"></div>
+            <p>Đang kiểm tra đăng nhập...</p>
+        </div>
+        
+        <!-- Form tạo chủ đề (Mặc định ẩn) -->
+        <div id="topic-creator" class="hidden">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-8">
+                Tạo chủ đề mới
+            </h1>
+            
+            <form id="create-topic-form" class="bg-white p-6 rounded-lg shadow-lg space-y-5">
+                <div>
+                    <label for="topic-title" class="block font-semibold text-slate-700">Tiêu đề chủ đề</label>
+                    <input type="text" id="topic-title" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                </div>
+                
+                <div>
+                    <label class="block font-semibold text-slate-700">Nội dung</label>
+                    <!-- Quill Editor Container -->
+                    <div id="quill-editor-container" class="mt-1">
+                        <div id="quill-editor">
+                            <!-- Quill sẽ khởi tạo ở đây -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <button type="submit" class="w-full sm:w-auto px-6 py-3 font-semibold text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all duration-300 shadow-md">
+                        Gửi chủ đề
+                    </button>
+                    <span id="topic-form-message" class="text-red-600 ml-4"></span>
+                </div>
+            </form>
+        </div>
+
+    </main>
+    
+    <!-- (CẬP NHẬT) FOOTER ĐẦY ĐỦ -->
+    <footer class="bg-white border-t border-gray-200 mt-16">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                <div>
+                    <a href="index.html" class="text-2xl font-extrabold text-teal-600">
+                        Chill
+                    </a>
+                    <p class="mt-1 text-sm text-slate-500">Hội "Deal" Gọn Sống "Chill"</p>
+                </div>
+                <div class="flex space-x-6 text-sm font-medium text-slate-600">
+                    <a href="baiviet.html" class="hover:text-teal-600">Bài Viết</a>
+                    <a href="minigame.html" class="hover:text-teal-600">Minigame</a>
+                    <a href="diendan.html" class="hover:text-teal-600">Diễn đàn</a>
+                </div>
+            </div>
+            <div class="mt-8 text-center text-xs text-slate-400">
+                &copy; 2025. Phát triển bởi Thông.
+            </div>
+        </div>
+    </footer>
+
+    <!-- 
+      ==================================================================
+      PHẦN JAVASCRIPT
+      ==================================================================
+    -->
+    <script>
+        // --- 1. Logic cho Menu Mobile (Giữ nguyên) ---
+        const menuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        if (menuButton) {
+            menuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+        }
+
+        // --- 2. Logic Firebase (Khởi tạo) ---
+        let db;
+        let auth;
+        let currentUser = null; // Biến lưu thông tin user
+        let quill; // Biến cho trình soạn thảo
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch (e) {
+            console.error("Lỗi khởi tạo Firebase: ", e);
+            document.getElementById('page-loader').innerText = "Lỗi kết nối CSDL.";
+        }
+        
+        // --- 3. Logic Auth/Admin (Giữ nguyên) ---
+        function setupAuthUI() {
+            if (!auth || !db) {
+                console.error("Auth hoặc Firestore chưa được khởi tạo.");
+                return;
+            }
+            const authLinksDesktop = document.getElementById('auth-links-desktop');
+            const userProfileDesktop = document.getElementById('user-profile-desktop');
+            const userNameDesktop = document.getElementById('user-name-desktop');
+            const logoutBtnDesktop = document.getElementById('logout-btn-desktop');
+            const authLinksMobile = document.getElementById('auth-links-mobile');
+            const userProfileMobile = document.getElementById('user-profile-mobile');
+            const userNameMobile = document.getElementById('user-name-mobile');
+            const logoutBtnMobile = document.getElementById('logout-btn-mobile');
+            const adminLinkDesktop = document.getElementById('admin-link-desktop');
+            const adminLinkMobile = document.getElementById('admin-link-mobile');
+
+            async function checkUserRole(uid) {
+                if (!uid) return;
+                try {
+                    const userDoc = await db.collection('users').doc(uid).get();
+                    if (userDoc.exists && userDoc.data().role === 'admin') {
+                        if (adminLinkDesktop) adminLinkDesktop.classList.remove('hidden');
+                        if (adminLinkMobile) adminLinkMobile.classList.remove('hidden');
+                    } else {
+                        if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                        if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                    }
+                } catch (error) {
+                    if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                    if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                }
+            }
+
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    const name = user.displayName || "Bạn";
+                    if (userNameDesktop) userNameDesktop.innerText = name;
+                    if (authLinksDesktop) { authLinksDesktop.classList.add('hidden'); authLinksDesktop.classList.remove('md:flex'); }
+                    if (userProfileDesktop) { userProfileDesktop.classList.remove('hidden'); userProfileDesktop.classList.add('md:flex'); }
+                    if (userNameMobile) userNameMobile.innerText = name;
+                    if (authLinksMobile) authLinksMobile.classList.add('hidden');
+                    if (userProfileMobile) userProfileMobile.classList.remove('hidden');
+                    checkUserRole(user.uid);
+                } else {
+                    if (authLinksDesktop) { authLinksDesktop.classList.remove('hidden'); authLinksDesktop.classList.add('md:flex'); }
+                    if (userProfileDesktop) { userProfileDesktop.classList.add('hidden'); userProfileDesktop.classList.remove('md:flex'); }
+                    if (authLinksMobile) authLinksMobile.classList.remove('hidden');
+                    if (userProfileMobile) userProfileMobile.classList.add('hidden');
+                    if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                    if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                }
+            });
+
+            if (logoutBtnDesktop) logoutBtnDesktop.onclick = () => { auth.signOut(); };
+            if (logoutBtnMobile) logoutBtnMobile.onclick = () => { auth.signOut(); };
+        }
+
+        // --- 4. Logic Tạo Chủ đề (Giữ nguyên) ---
+        
+        /**
+         * Hàm khởi tạo trang, kiểm tra đăng nhập và hiển thị form
+         */
+        function initializePage() {
+            const loader = document.getElementById('page-loader');
+            const creator = document.getElementById('topic-creator');
+            
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    // Đã đăng nhập
+                    currentUser = user; // Lưu user vào biến toàn cục
+                    
+                    // Khởi tạo Quill Editor
+                    quill = new Quill('#quill-editor', {
+                        theme: 'snow',
+                        modules: {
+                            toolbar: [
+                                [{ 'header': [1, 2, 3, false] }],
+                                ['bold', 'italic', 'underline', 'strike'],
+                                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                                ['link', 'blockquote', 'code-block'],
+                                ['clean']
+                            ]
+                        },
+                        placeholder: 'Nhập nội dung chủ đề ở đây...'
+                    });
+                    
+                    // Ẩn loader, hiện form
+                    loader.style.display = 'none';
+                    creator.classList.remove('hidden');
+                    
+                } else {
+                    // CHƯA đăng nhập
+                    console.log("Người dùng chưa đăng nhập. Chuyển hướng về login.html...");
+                    loader.innerText = "Bạn phải đăng nhập để tạo chủ đề. Đang chuyển hướng...";
+                    // Tự động chuyển về trang login
+                    window.location.href = 'login.html';
+                }
+            });
+        }
+        
+        /**
+         * Hàm xử lý khi submit form
+         */
+        async function handleTopicSubmit(e) {
+            e.preventDefault();
+            if (!currentUser) {
+                alert("Phiên đăng nhập đã hết hạn. Vui lòng tải lại trang.");
+                return;
+            }
+            
+            const title = document.getElementById('topic-title').value.trim();
+            const content = quill.root.innerHTML;
+            const statusMsg = document.getElementById('topic-form-message');
+            
+            // Validate
+            if (title.length < 5) {
+                statusMsg.innerText = "Tiêu đề phải dài ít nhất 5 ký tự.";
+                return;
+            }
+            if (content.length < 20) { // Kiểm tra nội dung
+                statusMsg.innerText = "Nội dung phải dài một chút.";
+                return;
+            }
+            
+            statusMsg.innerText = "Đang gửi...";
+
+            try {
+                // Tạo document mới trong collection 'topics'
+                const docRef = await db.collection("topics").add({
+                    title: title,
+                    content: content,
+                    authorName: currentUser.displayName || "Người dùng ẩn danh",
+                    authorId: currentUser.uid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastReplyAt: firebase.firestore.FieldValue.serverTimestamp(), 
+                    replyCount: 0 
+                });
+                
+                statusMsg.innerText = "Thành công!";
+                
+                // Chuyển hướng người dùng đến chủ đề họ vừa tạo
+                window.location.href = `viewdiendan.html?id=${docRef.id}`;
+
+            } catch (error) {
+                console.error("Lỗi khi tạo chủ đề: ", error);
+                statusMsg.innerText = "Đã xảy ra lỗi khi gửi. Vui lòng thử lại.";
+            }
+        }
+
+        // (MỚI) Hàm tạo tuyết (Giống minigame.html)
+        function createSnowflakes() {
+            const snowContainer = document.getElementById('snow-container');
+            if (!snowContainer) return; 
+            const snowflakesCount = 30; 
+
+            for (let i = 0; i < snowflakesCount; i++) {
+                const snowflake = document.createElement('span');
+                snowflake.className = 'snowflake';
+                snowflake.innerHTML = '❄️';
+                
+                snowflake.style.left = Math.random() * 100 + 'vw';
+                snowflake.style.animationDuration = (Math.random() * 20 + 10) + 's'; 
+                snowflake.style.animationDelay = Math.random() * 10 + 's'; 
+                snowflake.style.fontSize = (Math.random() * 1 + 0.5) + 'rem'; 
+                snowflake.style.opacity = Math.random() * 0.5 + 0.3; 
+                
+                snowContainer.appendChild(snowflake);
+            }
+        }
+
+        // --- 5. Kích hoạt khi trang tải xong ---
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Trang "Tạo Chủ đề" (Giao diện Noel) đã tải!');
+            
+            createSnowflakes(); // (MỚI) Tạo tuyết
+            feather.replace(); // (MỚI) Kích hoạt icons (nếu có)
+            
+            if (db && auth) {
+                setupAuthUI(); // Chạy hàm setup UI (cho navbar)
+                initializePage(); // Chạy hàm setup chính của trang này
+                
+                // Gắn sự kiện submit cho form
+                document.getElementById('create-topic-form').addEventListener('submit', handleTopicSubmit);
+            }
+        });
+
+    </script>
+
+</body>
+</html>

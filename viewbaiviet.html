@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đang tải bài viết... - Chill</title> 
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    
+    <script src="key.js"></script>
+    
+    <!-- (MỚI) 5. FEATHER ICONS -->
+    <script src="https://unpkg.com/feather-icons"></script>
+
+    <style>
+        /* (CSS chung, font chữ) */
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
+        .loader { border-top-color: #0d9488; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* (CSS cho nội dung bài viết) */
+        .prose {
+            color: #374151; /* text-gray-700 */
+            line-height: 1.75;
+        }
+        .prose h1 {
+            font-size: 2.25rem; /* text-4xl */
+            font-weight: 800;
+            margin-bottom: 1rem;
+            margin-top: 1.5rem;
+        }
+        .prose h2 {
+            font-size: 1.875rem; /* text-3xl */
+            font-weight: 700;
+            margin-bottom: 1rem;
+            margin-top: 1.5rem;
+        }
+        .prose h3 {
+            font-size: 1.5rem; /* text-2xl */
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            margin-top: 1.25rem;
+        }
+        .prose p {
+            margin-bottom: 1.25rem;
+        }
+        .prose ul {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+        .prose a {
+            color: #0d9488; /* text-teal-600 */
+            text-decoration: underline;
+        }
+        .prose blockquote {
+            border-left: 4px solid #0d9488;
+            padding-left: 1rem;
+            font-style: italic;
+            color: #555;
+            margin-left: 0;
+            margin-right: 0;
+        }
+        .prose img {
+            border-radius: 0.5rem; /* bo tròn ảnh */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        
+        /* (MỚI) Keyframes cho tuyết rơi */
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(360deg); opacity: 0.2; }
+        }
+        .snowflake {
+            position: fixed;
+            top: -10vh;
+            color: #cbd5e1; /* slate-300 */
+            font-size: 1.5rem;
+            animation: fall 15s linear infinite;
+            pointer-events: none;
+            z-index: 9999; /* Luôn ở trên cùng */
+        }
+    </style>
+</head>
+
+<!-- (CẬP NHẬT) Giao diện nền sáng (màu Noel) -->
+<body class="bg-gradient-to-b from-white via-red-50 to-white text-slate-700">
+
+    <!-- (MỚI) Container cho Tuyết rơi -->
+    <div id="snow-container" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <header class="bg-white/95 backdrop-blur-sm shadow-sm sticky top-0 z-40">
+        <nav class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
+            <a href="index.html" class="text-3xl font-extrabold text-teal-600 transition-transform duration-300 hover:scale-105">
+                Chill
+            </a>
+            
+            <div class="hidden md:flex items-center space-x-1">
+                <a href="index.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Trang chủ</a>
+                <!-- (CẬP NHẬT) Link active màu đỏ -->
+                <a href="baiviet.html" class="px-3 py-2 rounded-md font-semibold text-red-600">Bài Viết</a>
+                <a href="minigame.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Minigame</a>
+                <a href="diendan.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Diễn đàn</a>
+            </div>
+            
+            <!-- (CẬP NHẬT) Khối Auth/Admin Desktop -->
+            <div id="auth-links-desktop" class="items-center space-x-2">
+                 <a href="login.html" class="px-4 py-2 text-sm font-medium text-teal-600 border border-teal-600 rounded-lg hover:bg-teal-50 transition duration-300">Đăng nhập</a>
+                 <a href="register.html" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700">Đăng ký</a>
+            </div>
+            <div id="user-profile-desktop" class="items-center space-x-3">
+                 <span class="font-medium text-slate-700">Chào, <span id="user-name-desktop" class="font-bold text-teal-600">User</span></span>
+                 <a id="admin-link-desktop" href="admin.html" class="hidden px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">Trang Admin</a>
+                 <button id="logout-btn-desktop" class="px-3 py-2 text-sm font-medium text-red-600 border border-red-600 rounded-lg hover:bg-red-50">Đăng xuất</button>
+            </div>
+
+            <div class="md:hidden">
+                <button id="mobile-menu-button" class="text-slate-700 hover:text-teal-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
+            </div>
+        </nav>
+        
+        <!-- (CẬP NHẬT) Menu mobile Auth/Admin -->
+        <div id="mobile-menu" class="md:hidden hidden bg-white shadow-lg">
+             <a href="index.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Trang chủ</a>
+            <a href="baiviet.html" class="block px-4 py-3 text-base font-semibold text-red-600">Bài Viết</a>
+            <a href="minigame.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Minigame</a>
+            <a href="diendan.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Diễn đàn</a>
+            
+            <div id="auth-links-mobile" class="border-t border-slate-200 px-4 py-3 space-y-2">
+                <a href="register.html" class="block w-full text-center px-4 py-2 text-base font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg">Đăng ký</a>
+                <a href="login.html" class="block w-full text-center px-4 py-2 text-base font-medium text-teal-600 bg-teal-50 rounded-lg">Đăng nhập</a>
+            </div>
+            <div id="user-profile-mobile" class="hidden border-t border-slate-200 px-4 py-3">
+                <div class="mb-2"><span class="font-medium text-slate-700">Chào, <span id="user-name-mobile" class="font-bold text-teal-600">User</span></span></div>
+                <a id="admin-link-mobile" href="admin.html" class="hidden block w-full text-center px-4 py-2 text-base font-medium text-white bg-red-600 rounded-lg mb-2">Trang Admin</a>
+                <button id="logout-btn-mobile" class="block w-full text-center px-4 py-2 text-base font-medium text-red-600 bg-red-50 rounded-lg">Đăng xuất</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        
+        <div id="post-loading" class="text-center text-slate-500 py-20">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mx-auto mb-4"></div>
+            <p>Đang tải bài viết...</p>
+        </div>
+        
+        <article id="post-container" class="hidden fade-in-up prose">
+            <h1 id="post-title" class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight"></h1>
+            <p id="post-meta" class="text-base text-slate-500"></p>
+            <hr class="my-8">
+            <div id="post-content">
+                </div>
+        </article>
+        
+    </main>
+    
+    <section id="comments-section" class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t border-gray-200">
+        <h2 class="text-2xl font-bold text-slate-900 mb-6">Bình luận</h2>
+
+        <div id="comment-form-container" class="mb-8">
+            <form id="comment-form" class="hidden">
+                <textarea id="comment-text" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" rows="4" placeholder="Viết bình luận của bạn..." required></textarea>
+                <div class="mt-3 text-right">
+                    <button type="submit" class="px-5 py-2 font-semibold text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all duration-300">
+                        Gửi bình luận
+                    </button>
+                </div>
+            </form>
+            
+            <div id="login-prompt">
+                <p class="text-center text-slate-600 bg-gray-100 p-4 rounded-lg">
+                    Vui lòng 
+                    <a href="login.html" class="font-semibold text-teal-600 hover:underline">đăng nhập</a>
+                    để để lại bình luận.
+                </p>
+            </div>
+        </div>
+        
+        <div id="comments-loading" class="text-center text-slate-500 py-10">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-8 w-8 mx-auto mb-3"></div>
+            <p>Đang tải bình luận...</p>
+        </div>
+
+        <div id="comments-list" class="space-y-6">
+            </div>
+    </section>
+
+    <!-- (CẬP NHẬT) FOOTER ĐẦY ĐỦ -->
+    <footer class="bg-white border-t border-gray-200 mt-16">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                <div>
+                    <a href="index.html" class="text-2xl font-extrabold text-teal-600">
+                        Chill
+                    </a>
+                    <p class="mt-1 text-sm text-slate-500">Hội "Deal" Gọn Sống "Chill"</p>
+                </div>
+                <div class="flex space-x-6 text-sm font-medium text-slate-600">
+                    <a href="baiviet.html" class="hover:text-teal-600">Bài Viết</a>
+                    <a href="minigame.html" class="hover:text-teal-600">Minigame</a>
+                    <a href="diendan.html" class="hover:text-teal-600">Diễn đàn</a>
+                </div>
+            </div>
+            <div class="mt-8 text-center text-xs text-slate-400">
+                &copy; 2025. Phát triển bởi Thông.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // --- 1. Logic cho Menu Mobile ---
+        const menuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        menuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // --- 2. Logic Firebase ---
+        
+        let db;
+        let auth;
+        let currentUser = null; 
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch (e) {
+            console.error("Lỗi khởi tạo Firebase: ", e);
+            document.getElementById('post-loading').innerHTML = "Lỗi tải config. Hãy kiểm tra console (F12).";
+            document.getElementById('comments-loading').innerHTML = "Lỗi kết nối CSDL.";
+        }
+        
+
+        /**
+         * Hàm tải 1 bài viết dựa trên ID từ URL
+         */
+        async function fetchPost(postId) {
+            const container = document.getElementById('post-container');
+            const loading = document.getElementById('post-loading');
+
+            try {
+                const docRef = db.collection("posts").doc(postId);
+                const doc = await docRef.get();
+
+                if (doc.exists) {
+                    const post = doc.data();
+                    
+                    document.title = `${post.title} - Chill`; 
+                    document.getElementById('post-title').innerText = post.title || 'Không có tiêu đề';
+                    document.getElementById('post-content').innerHTML = post.content || '<p>Nội dung đang được cập nhật...</p>';
+                    
+                    let metaHtml = `Đăng bởi <span class="font-semibold text-teal-700">${post.authorName || 'Admin'}</span>`;
+                    if (post.createdAt) {
+                        const date = post.createdAt.toDate();
+                        const formattedDate = date.toLocaleDateString('vi-VN', {
+                            day: 'numeric', 
+                            month: 'long', 
+                            year: 'numeric'
+                        });
+                        metaHtml += ` vào ngày ${formattedDate}`;
+                    }
+                    document.getElementById('post-meta').innerHTML = metaHtml;
+                    
+                    loading.style.display = 'none';
+                    container.classList.remove('hidden');
+
+                } else {
+                    console.error("Không tìm thấy bài viết!");
+                    loading.innerHTML = `
+                        <h2 class="text-2xl font-bold text-red-600">Lỗi 404</h2>
+                        <p class="mt-2">Không tìm thấy bài viết bạn yêu cầu.</p>
+                        <a href="baiviet.html" class="inline-block mt-4 px-4 py-2 text-white bg-teal-600 rounded-lg">Quay lại danh sách</a>
+                    `;
+                }
+            } catch (error) {
+                console.error("Lỗi tải bài viết: ", error);
+                loading.innerText = "Không thể tải bài viết.";
+            }
+        }
+
+        /**
+         * Hàm lắng nghe (real-time) các bình luận
+         */
+        function listenForComments(postId) {
+            const list = document.getElementById('comments-list');
+            const loading = document.getElementById('comments-loading');
+
+            const commentsRef = db.collection("posts").doc(postId).collection("comments")
+                                .orderBy("createdAt", "desc");
+            
+            commentsRef.onSnapshot(querySnapshot => {
+                let commentsHtml = '';
+                if (querySnapshot.empty) {
+                    loading.innerText = 'Chưa có bình luận nào. Hãy là người đầu tiên!';
+                } else {
+                    querySnapshot.forEach(doc => {
+                        const comment = doc.data();
+                        
+                        let formattedDate = 'Vừa xong';
+                        if (comment.createdAt) {
+                            formattedDate = comment.createdAt.toDate().toLocaleDateString('vi-VN', {
+                                day: '2-digit', month: '2-digit', year: 'numeric', 
+                                hour: '2-digit', minute: '2-digit'
+                            });
+                        }
+                        
+                        commentsHtml += `
+                            <div class="flex space-x-3">
+                                <div class="flex-shrink-0">
+                                    <div class="h-10 w-10 rounded-full bg-teal-500 text-white flex items-center justify-center font-semibold">
+                                        ${comment.authorName ? comment.authorName.charAt(0).toUpperCase() : 'A'}
+                                    </div>
+                                </div>
+                                <div class="flex-1 bg-gray-50 p-4 rounded-lg">
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-semibold text-teal-700">${comment.authorName || 'Người dùng'}</span>
+                                        <span class="text-xs text-gray-500">${formattedDate}</span>
+                                    </div>
+                                    <p class="mt-2 text-gray-700">${comment.text || ''}</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    list.innerHTML = commentsHtml;
+                    loading.style.display = 'none';
+                }
+            }, error => {
+                console.error("Lỗi tải bình luận: ", error);
+                loading.innerText = "Không thể tải bình luận.";
+            });
+        }
+
+        /**
+         * Hàm xử lý gửi bình luận
+         */
+        async function handleCommentSubmit(e, postId) {
+            e.preventDefault(); 
+            if (!currentUser) {
+                alert("Bạn phải đăng nhập để bình luận!");
+                return;
+            }
+
+            const form = document.getElementById('comment-form');
+            const textarea = document.getElementById('comment-text');
+            const text = textarea.value.trim(); 
+
+            if (text.length === 0) {
+                alert("Vui lòng nhập nội dung bình luận.");
+                return;
+            }
+
+            try {
+                await db.collection("posts").doc(postId).collection("comments").add({
+                    text: text,
+                    authorName: currentUser.displayName || "Người dùng ẩn danh",
+                    authorId: currentUser.uid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp() 
+                });
+                
+                textarea.value = '';
+
+            } catch (error) {
+                console.error("Lỗi gửi bình luận: ", error);
+                alert("Đã xảy ra lỗi khi gửi bình luận của bạn.");
+            }
+        }
+
+        /**
+         * (CẬP NHẬT) Hàm kiểm tra trạng thái đăng nhập
+         */
+        function setupAuthAndComments(postId) {
+            const formContainer = document.getElementById('comment-form-container');
+            const form = document.getElementById('comment-form');
+            const loginPrompt = document.getElementById('login-prompt');
+            
+            // (CẬP NHẬT) Auth/Admin cho Header
+            if (!auth || !db) { return; }
+            const authLinksDesktop = document.getElementById('auth-links-desktop');
+            const userProfileDesktop = document.getElementById('user-profile-desktop');
+            const userNameDesktop = document.getElementById('user-name-desktop');
+            const logoutBtnDesktop = document.getElementById('logout-btn-desktop');
+            const authLinksMobile = document.getElementById('auth-links-mobile');
+            const userProfileMobile = document.getElementById('user-profile-mobile');
+            const userNameMobile = document.getElementById('user-name-mobile');
+            const logoutBtnMobile = document.getElementById('logout-btn-mobile');
+            const adminLinkDesktop = document.getElementById('admin-link-desktop');
+            const adminLinkMobile = document.getElementById('admin-link-mobile');
+
+            async function checkUserRole(uid) {
+                if (!uid) return;
+                try {
+                    const userDoc = await db.collection('users').doc(uid).get();
+                    if (userDoc.exists && userDoc.data().role === 'admin') {
+                        if (adminLinkDesktop) adminLinkDesktop.classList.remove('hidden');
+                        if (adminLinkMobile) adminLinkMobile.classList.remove('hidden');
+                    } else {
+                        if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                        if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                    }
+                } catch (error) {
+                    if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                    if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                }
+            }
+            
+            // Lắng nghe thay đổi trạng thái đăng nhập
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    // Người dùng đã đăng nhập
+                    currentUser = user; 
+                    loginPrompt.style.display = 'none'; 
+                    form.classList.remove('hidden'); 
+                    
+                    form.onsubmit = (e) => handleCommentSubmit(e, postId);
+                    
+                    // (CẬP NHẬT) Logic Auth/Admin Header
+                    const name = user.displayName || "Bạn";
+                    if (userNameDesktop) userNameDesktop.innerText = name;
+                    if (authLinksDesktop) { authLinksDesktop.classList.add('hidden'); authLinksDesktop.classList.remove('md:flex'); }
+                    if (userProfileDesktop) { userProfileDesktop.classList.remove('hidden'); userProfileDesktop.classList.add('md:flex'); }
+                    if (userNameMobile) userNameMobile.innerText = name;
+                    if (authLinksMobile) authLinksMobile.classList.add('hidden');
+                    if (userProfileMobile) userProfileMobile.classList.remove('hidden');
+                    checkUserRole(user.uid);
+                    
+                } else {
+                    // Người dùng đã đăng xuất (hoặc khách)
+                    currentUser = null;
+                    loginPrompt.style.display = 'block'; 
+                    form.classList.add('hidden'); 
+                    form.onsubmit = null; 
+                    
+                    // (CẬP NHẬT) Logic Auth/Admin Header
+                    if (authLinksDesktop) { authLinksDesktop.classList.remove('hidden'); authLinksDesktop.classList.add('md:flex'); }
+                    if (userProfileDesktop) { userProfileDesktop.classList.add('hidden'); userProfileDesktop.classList.remove('md:flex'); }
+                    if (authLinksMobile) authLinksMobile.classList.remove('hidden');
+                    if (userProfileMobile) userProfileMobile.classList.add('hidden');
+                    if (adminLinkDesktop) adminLinkDesktop.classList.add('hidden');
+                    if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
+                }
+            });
+            
+            // (CẬP NHẬT) Gắn sự kiện Đăng xuất
+            if (logoutBtnDesktop) logoutBtnDesktop.onclick = () => { auth.signOut(); };
+            if (logoutBtnMobile) logoutBtnMobile.onclick = () => { auth.signOut(); };
+        }
+        
+        // (MỚI) Hàm tạo tuyết
+        function createSnowflakes() {
+            const snowContainer = document.getElementById('snow-container');
+            if (!snowContainer) return; 
+            const snowflakesCount = 30; 
+
+            for (let i = 0; i < snowflakesCount; i++) {
+                const snowflake = document.createElement('span');
+                snowflake.className = 'snowflake';
+                snowflake.innerHTML = '❄️';
+                
+                snowflake.style.left = Math.random() * 100 + 'vw';
+                snowflake.style.animationDuration = (Math.random() * 20 + 10) + 's'; 
+                snowflake.style.animationDelay = Math.random() * 10 + 's'; 
+                snowflake.style.fontSize = (Math.random() * 1 + 0.5) + 'rem'; 
+                snowflake.style.opacity = Math.random() * 0.5 + 0.3; 
+                
+                snowContainer.appendChild(snowflake);
+            }
+        }
+
+        // --- 3. Kích hoạt khi trang tải xong ---
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Trang "Xem Bài Viết" (với comment & Noel) đã tải!');
+            
+            createSnowflakes(); // (MỚI) Tạo tuyết
+            feather.replace(); // (MỚI) Kích hoạt icons (nếu có)
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const postId = urlParams.get('id');
+
+            if (postId && db && auth) {
+                fetchPost(postId);           // Tải nội dung bài viết
+                listenForComments(postId);   // Lắng nghe bình luận
+                setupAuthAndComments(postId); // Kiểm tra đăng nhập
+            } else if (!postId) {
+                document.getElementById('post-loading').innerHTML = `
+                    <h2 class="text-2xl font-bold text-red-600">Lỗi</h2>
+                    <p class="mt-2">Không có ID bài viết nào được cung cấp.</p>
+                    <a href="baiviet.html" class="inline-block mt-4 px-4 py-2 text-white bg-teal-600 rounded-lg">Quay lại danh sách</a>
+                `;
+                document.getElementById('comments-section').style.display = 'none';
+            } else {
+                console.error("Lỗi: Firebase chưa sẵn sàng hoặc không có Post ID.");
+            }
+        });
+
+    </script>
+
+</body>
+</html>

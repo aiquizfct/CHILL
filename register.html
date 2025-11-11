@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng ký - Chill</title> 
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    
+    <script src="key.js"></script>
+
+    <style>
+        /* (CSS chung, font chữ) */
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in-up { animation: fadeInUp 0.6s ease-out forwards; }
+        .loader { border-top-color: #0d9488; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* (MỚI) Keyframes cho tuyết rơi */
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(360deg); opacity: 0.2; }
+        }
+        .snowflake {
+            position: fixed;
+            top: -10vh;
+            color: #cbd5e1; /* slate-300 */
+            font-size: 1.5rem;
+            animation: fall 15s linear infinite;
+            pointer-events: none;
+            z-index: 9999; /* Luôn ở trên cùng */
+        }
+    </style>
+</head>
+
+<!-- (CẬP NHẬT) Nền Noel -->
+<body class="bg-gradient-to-b from-white via-red-50 to-white text-slate-700">
+
+    <!-- (MỚI) Container cho Tuyết rơi -->
+    <div id="snow-container" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <div class="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        
+        <a href="index.html" class="text-5xl font-extrabold text-teal-600 mb-8 transition-transform duration-300 hover:scale-105 z-10">
+            Chill
+        </a>
+
+        <div class="max-w-md w-full bg-white shadow-2xl rounded-2xl p-8 md:p-10 space-y-6 fade-in-up z-10">
+            
+            <h2 class="text-center text-3xl font-bold text-slate-900">
+                Tạo tài khoản
+            </h2>
+
+            <button id="google-login-btn" class="w-full flex justify-center items-center gap-3 py-3 px-4 border border-gray-300 rounded-lg text-slate-700 font-semibold hover:bg-gray-50 transition-all duration-300">
+                <svg class="w-5 h-5" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path><path fill="none" d="M0 0h48v48H0z"></path></svg>
+                Đăng ký với Google
+            </button>
+
+            <div class="relative">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-2 bg-white text-gray-500">
+                        hoặc đăng ký với email
+                    </span>
+                </div>
+            </div>
+
+            <form id="register-form" class="space-y-5">
+                <div id="register-error" class="hidden p-3 bg-red-50 text-red-700 rounded-lg">
+                    </div>
+
+                <div>
+                    <label for="display-name" class="font-medium text-slate-700">Tên hiển thị</label>
+                    <input id="display-name" name="displayname" type="text" required 
+                           class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label for="email-address" class="font-medium text-slate-700">Địa chỉ email</label>
+                    <input id="email-address" name="email" type="email" autocomplete="email" required 
+                           class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent">
+                </div>
+
+                <div>
+                    <label for="password" class="font-medium text-slate-700">Mật khẩu</label>
+                    <input id="password" name="password" type="password" autocomplete="new-password" required 
+                           class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label for="confirm-password" class="font-medium text-slate-700">Xác nhận mật khẩu</label>
+                    <input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" required 
+                           class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent">
+                </div>
+
+                <div>
+                    <button type="submit" 
+                            class="w-full flex justify-center py-3 px-4 font-semibold text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg shadow-lg hover:from-teal-600 hover:to-cyan-700 transition-all duration-300 transform hover:scale-105">
+                        <span id="register-btn-text">Tạo tài khoản</span>
+                        <div id="register-loading" class="hidden loader ease-linear rounded-full border-2 border-t-2 border-gray-200 h-6 w-6"></div>
+                    </button>
+                </div>
+            </form>
+            
+            <p class="text-center text-sm text-gray-600">
+                Đã có tài khoản? 
+                <a href="login.html" class="font-semibold text-teal-600 hover:text-teal-500 hover:underline">
+                    Đăng nhập ngay
+                </a>
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        let auth;
+        let db; 
+        
+        try {
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.firestore(); 
+        } catch (e) {
+            console.error("Lỗi khởi tạo Firebase: ", e);
+            document.getElementById('register-error').innerText = "Lỗi kết nối CSDL. Vui lòng tải lại trang.";
+            document.getElementById('register-error').classList.remove('hidden');
+        }
+        
+        const registerForm = document.getElementById('register-form');
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        const registerError = document.getElementById('register-error');
+        const registerBtnText = document.getElementById('register-btn-text');
+        const registerLoading = document.getElementById('register-loading');
+
+        // (Hàm hiển thị lỗi - giữ nguyên)
+        function showRegisterError(message) {
+            registerError.innerText = message;
+            registerError.classList.remove('hidden');
+            // Tắt loading
+            registerBtnText.classList.remove('hidden');
+            registerLoading.classList.add('hidden');
+        }
+
+        // (Hàm xử lý lỗi Firebase - giữ nguyên)
+        function handleAuthError(error) {
+            console.error("Lỗi xác thực:", error.code, error.message);
+            switch (error.code) {
+                case 'auth/email-already-in-use':
+                    return 'Email này đã được sử dụng.';
+                case 'auth/weak-password':
+                    return 'Mật khẩu quá yếu. Vui lòng chọn mật khẩu khác (ít nhất 6 ký tự).';
+                case 'auth/invalid-email':
+                    return 'Địa chỉ email không hợp lệ.';
+                case 'auth/popup-closed-by-user':
+                    return 'Bạn đã đóng cửa sổ đăng ký Google.';
+                default:
+                    return 'Đã xảy ra lỗi. Vui lòng thử lại.';
+            }
+        }
+        
+        // (Hàm tạo document user trong Firestore - giữ nguyên)
+        async function createUserDocument(uid, email, displayName) {
+            if (!uid) return;
+            
+            const userRef = db.collection('users').doc(uid);
+            const snapshot = await userRef.get();
+            
+            if (!snapshot.exists) {
+                const createdAt = new Date(); 
+                
+                try {
+                    await userRef.set({
+                        uid,
+                        email,
+                        displayName, 
+                        createdAt,
+                        role: 'user' 
+                    });
+                } catch (error) {
+                    console.error("Lỗi khi tạo document user: ", error);
+                }
+            }
+        }
+
+        // 1. (Kiểm tra xem user ĐÃ đăng nhập chưa)
+        if (auth) {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    console.log("Người dùng đã đăng nhập. Đang chuyển hướng...");
+                    window.location.href = 'index.html'; 
+                }
+            });
+        }
+
+        // 2. (Xử lý Đăng ký Email/Password - giữ nguyên)
+        if (registerForm) {
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault(); 
+                
+                const displayName = document.getElementById('display-name').value;
+                const email = document.getElementById('email-address').value;
+                const password = document.getElementById('password').value;
+                const confirmPassword = document.getElementById('confirm-password').value;
+                
+                if (password !== confirmPassword) {
+                    showRegisterError('Mật khẩu xác nhận không khớp.');
+                    return;
+                }
+                
+                if (displayName.trim().length === 0) {
+                    showRegisterError('Vui lòng nhập tên hiển thị.');
+                    return;
+                }
+
+                registerBtnText.classList.add('hidden');
+                registerLoading.classList.remove('hidden');
+                registerError.classList.add('hidden'); 
+
+                try {
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+
+                    await user.updateProfile({
+                        displayName: displayName
+                    });
+                    
+                    await createUserDocument(user.uid, user.email, displayName);
+
+                    window.location.href = 'index.html';
+                    
+                } catch (error) {
+                    showRegisterError(handleAuthError(error));
+                }
+            });
+        }
+
+        // 3. (Xử lý Đăng ký Google - giữ nguyên)
+        if (googleLoginBtn) {
+            googleLoginBtn.addEventListener('click', async () => {
+                
+                registerError.classList.add('hidden'); 
+                const provider = new firebase.auth.GoogleAuthProvider();
+
+                try {
+                    const userCredential = await auth.signInWithPopup(provider);
+                    const user = userCredential.user;
+
+                    await createUserDocument(user.uid, user.email, user.displayName);
+
+                    window.location.href = 'index.html';
+
+                } catch (error) {
+                    showRegisterError(handleAuthError(error));
+                }
+            });
+        }
+
+        // (MỚI) Hàm tạo tuyết
+        function createSnowflakes() {
+            const snowContainer = document.getElementById('snow-container');
+            if (!snowContainer) return; 
+            const snowflakesCount = 30; 
+
+            for (let i = 0; i < snowflakesCount; i++) {
+                const snowflake = document.createElement('span');
+                snowflake.className = 'snowflake';
+                snowflake.innerHTML = '❄️';
+                
+                snowflake.style.left = Math.random() * 100 + 'vw';
+                snowflake.style.animationDuration = (Math.random() * 20 + 10) + 's'; 
+                snowflake.style.animationDelay = Math.random() * 10 + 's'; 
+                snowflake.style.fontSize = (Math.random() * 1 + 0.5) + 'rem'; 
+                snowflake.style.opacity = Math.random() * 0.5 + 0.3; 
+                
+                snowContainer.appendChild(snowflake);
+            }
+        }
+        
+        // (MỚI) Kích hoạt khi trang tải xong
+        window.addEventListener('DOMContentLoaded', () => {
+            createSnowflakes(); // Tạo tuyết
+        });
+
+    </script>
+
+</body>
+</html>
