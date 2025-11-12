@@ -3,17 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Trắc Nghiệm (Noel) - Chill</title> 
+    <title>Game Trắc Nghiệm - Chill</title> 
     
-    <!-- 1. TAILWIND CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- 2. FIREBASE SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
     
-    <!-- 3. KẾT NỐI VỚI FILE KEY.JS -->
     <script src="key.js"></script>
 
     <style>
@@ -41,8 +38,46 @@
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
         }
+        
+        /* CSS thuần cho các nút (Đã sửa lỗi @apply) */
+        .quiz-option-btn {
+            width: 100%;
+            padding: 1rem; /* 16px */
+            background-color: #ffffff;
+            border: 2px solid #D1D5DB; /* border-gray-300 */
+            border-radius: 0.5rem; /* rounded-lg */
+            text-align: left;
+            font-weight: 500;
+            color: #334155; /* text-slate-700 */
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .quiz-option-btn:hover {
+            border-color: #a855f7; /* border-purple-500 */
+            background-color: #f5f3ff; /* bg-purple-50 */
+        }
+        .quiz-option-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .quiz-option-btn.correct {
+            background-color: #D1FAE5; /* bg-green-100 */
+            border-color: #10B981; /* border-green-500 */
+            color: #065F46; /* text-green-800 */
+            font-weight: 700;
+            animation: bounce 0.5s ease;
+        }
+        .quiz-option-btn.incorrect {
+            background-color: #FEE2E2; /* bg-red-100 */
+            border-color: #EF4444; /* border-red-500 */
+            color: #991B1B; /* text-red-800 */
+            animation: shake 0.5s ease;
+        }
+        
+        .animate-pop-in { animation: popIn 0.5s ease-out forwards; }
+        .animate-slide-in-up { animation: slideInUp 0.5s ease-out forwards; }
 
-        /* (MỚI) Keyframes cho tuyết rơi */
+        /* (MỚI) Keyframes cho tuyết rơi (Giao diện Noel) */
         @keyframes fall {
             0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
             100% { transform: translateY(110vh) rotate(360deg); opacity: 0.2; }
@@ -56,54 +91,13 @@
             pointer-events: none;
             z-index: 9999; /* Luôn ở trên cùng */
         }
-        
-        /* (CẬP NHẬT) CSS thuần cho các nút (Giao diện Noel) */
-        .quiz-option-btn {
-            width: 100%;
-            padding: 1rem; 
-            background-color: #ffffff;
-            border: 2px solid #D1D5DB; /* border-gray-300 */
-            border-radius: 0.5rem; /* rounded-lg */
-            text-align: left;
-            font-weight: 500;
-            color: #334155; /* text-slate-700 */
-            transition: all 0.2s ease-in-out;
-            cursor: pointer;
-        }
-        .quiz-option-btn:hover {
-            border-color: #EF4444; /* border-red-500 */
-            background-color: #FEF2F2; /* bg-red-50 */
-        }
-        .quiz-option-btn:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
-        .quiz-option-btn.correct {
-            background-color: #D1FAE5; /* bg-green-100 (Màu Giáng Sinh) */
-            border-color: #10B981; /* border-green-500 */
-            color: #065F46; /* text-green-800 */
-            font-weight: 700;
-            animation: bounce 0.5s ease;
-        }
-        .quiz-option-btn.incorrect {
-            background-color: #FEE2E2; /* bg-red-100 (Màu Giáng Sinh) */
-            border-color: #EF4444; /* border-red-500 */
-            color: #991B1B; /* text-red-800 */
-            animation: shake 0.5s ease;
-        }
-        
-        .animate-pop-in { animation: popIn 0.5s ease-out forwards; }
-        .animate-slide-in-up { animation: slideInUp 0.5s ease-out forwards; }
     </style>
 </head>
 
-<!-- (CẬP NHẬT) Giao diện nền sáng (màu Noel) -->
 <body class="bg-gradient-to-b from-white via-red-50 to-white text-slate-700">
 
-    <!-- (MỚI) Container cho Tuyết rơi -->
     <div id="snow-container" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
 
-    <!-- ========= NAVBAR (THANH ĐIỀU HƯỚNG) ========= -->
     <header class="bg-white/95 backdrop-blur-sm shadow-sm sticky top-0 z-40">
         <nav class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
             <a href="index.html" class="text-3xl font-extrabold text-teal-600 transition-transform duration-300 hover:scale-105">
@@ -113,12 +107,10 @@
             <div class="hidden md:flex items-center space-x-1">
                 <a href="index.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Trang chủ</a>
                 <a href="baiviet.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Bài Viết</a>
-                <!-- (CẬP NHẬT) Link Minigame (Màu Noel) -->
-                <a href="minigame.html" class="px-3 py-2 rounded-md font-semibold text-red-600">Minigame</a>
-                <a href="diendan.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Diễn đàn</a>
+                <a href="minigame.html" class="px-3 py-2 rounded-md font-semibold text-red-600">Minigame</a> <a href="diendan.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Diễn đàn</a>
+                <a href="congcu.html" class="px-3 py-2 rounded-md font-medium text-slate-600 hover:text-teal-600 transition duration-300">Công Cụ</a>
             </div>
             
-            <!-- Khối Auth/Admin (nền sáng) -->
             <div id="auth-links-desktop" class="items-center space-x-2">
                  <a href="login.html" class="px-4 py-2 text-sm font-medium text-teal-600 border border-teal-600 rounded-lg hover:bg-teal-50 transition duration-300">Đăng nhập</a>
                  <a href="register.html" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700">Đăng ký</a>
@@ -136,12 +128,12 @@
             </div>
         </nav>
         
-        <!-- Menu mobile (nền sáng) -->
         <div id="mobile-menu" class="md:hidden hidden bg-white shadow-lg">
              <a href="index.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Trang chủ</a>
             <a href="baiviet.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Bài Viết</a>
             <a href="minigame.html" class="block px-4 py-3 text-base font-semibold text-red-600">Minigame</a>
             <a href="diendan.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Diễn đàn</a>
+            <a href="congcu.html" class="block px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50">Công Cụ</a>
             
             <div id="auth-links-mobile" class="border-t border-slate-200 px-4 py-3 space-y-2">
                 <a href="register.html" class="block w-full text-center px-4 py-2 text-base font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg">Đăng ký</a>
@@ -155,53 +147,36 @@
         </div>
     </header>
 
-    <!-- ========= MAIN CONTENT (NỘI DUNG CHÍNH) ========= -->
     <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         
-        <!-- Trạng thái Loading -->
         <div id="page-loader" class="text-center text-slate-500 py-20">
             <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mx-auto mb-4"></div>
             <p>Đang tải trò chơi...</p>
         </div>
         
-        <!-- Yêu cầu đăng nhập -->
-        <div id="quiz-login-prompt" class="hidden text-center text-slate-600 bg-gray-100 p-8 rounded-lg max-w-lg mx-auto shadow-lg">
-            <h2 class="text-2xl font-bold text-slate-800 mb-4">Bạn cần đăng nhập để chơi!</h2>
-            <p class="mb-6">Vui lòng đăng nhập để tham gia trắc nghiệm và lưu điểm vào bảng xếp hạng.</p>
-            <a href="login.html" class="px-6 py-3 font-semibold text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700">
-                Đăng nhập ngay
-            </a>
-        </div>
-        
-        <!-- Toàn bộ nội dung game (nền sáng) -->
         <div id="quiz-container" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            <!-- Cột 1: Game Trắc nghiệm -->
             <div class="lg:col-span-2 bg-white p-6 sm:p-8 rounded-lg shadow-xl">
                 <h1 class="text-3xl font-extrabold text-slate-900 mb-4">
-                    Thử thách Trắc nghiệm Noel 🎄
+                    Thử thách Trắc nghiệm 🎄
                 </h1>
                 
-                <!-- Thanh tiến trình -->
                 <div class="mb-4">
                     <div class="flex justify-between text-sm font-medium text-slate-600 mb-1">
                         <span>Tiến độ</span>
                         <span id="question-counter-text">Câu 0/0</span>
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-2.5">
-                        <!-- (CẬP NHẬT) Màu xanh Noel -->
                         <div id="progress-bar" class="bg-green-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
                     </div>
                 </div>
                 
-                <!-- Hiển thị điểm -->
-                <div class="mb-6 text-3xl font-bold text-red-600"> <!-- (CẬP NHẬT) Màu đỏ Noel -->
+                <div class="mb-6 text-3xl font-bold text-red-600"> 
                     Điểm: <span id="quiz-score">0</span>
                 </div>
                 
                 <hr class="border-gray-200 mb-6">
                 
-                <!-- Khu vực câu hỏi -->
                 <div id="quiz-game-area" style="min-height: 400px;">
                     <div id="quiz-question-loader" class="text-center text-slate-500 py-10">
                         <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-8 w-8 mx-auto mb-3"></div>
@@ -209,40 +184,41 @@
                     </div>
                     
                     <div id="quiz-question-content" class="hidden">
-                        <!-- Câu hỏi -->
                         <h2 id="quiz-question-text" class="text-2xl font-semibold text-slate-900 mb-8" style="min-height: 60px;">
-                            <!-- JS chèn câu hỏi -->
-                        </h2>
+                            </h2>
                         
-                        <!-- 4 Phương án -->
                         <div id="quiz-options-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- JS chèn các nút -->
-                        </div>
+                            </div>
                     </div>
                     
-                    <!-- Khu vực Hoàn thành game -->
                     <div id="quiz-end-screen" class="hidden text-center py-10 animate-pop-in">
-                        <h2 class="text-4xl font-bold text-red-600">Hoàn thành!</h2> <!-- (CẬP NHẬT) Màu đỏ Noel -->
+                        <h2 class="text-4xl font-bold text-red-600">Hoàn thành!</h2>
                         <p class="text-xl text-slate-600 mt-2">Bạn đã đạt được số điểm cuối cùng là:</p>
                         <p id="quiz-final-score" class="text-6xl font-extrabold text-slate-900 my-6">0</p>
-                        <p class="text-gray-500">Nhấn "Lưu & Chơi lại" để lưu điểm vào BXH!</p>
+                        <p class="text-gray-500">Nhấn "Lưu & Chơi lại" hoặc "Chơi lại"!</p>
                     </div>
                 </div>
                 
-                <!-- Nút điều khiển -->
                 <div class="mt-8 pt-6 border-t border-gray-200 flex justify-between items-center">
-                    <button id="save-score-btn" class="px-5 py-3 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-all">
+                    
+                    <button id="save-score-btn" class="hidden px-5 py-3 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-all">
                         Lưu điểm & Chơi lại
                     </button>
                     
-                    <!-- (CẬP NHẬT) Màu xanh Noel -->
+                    <button id="play-again-btn" class="hidden px-5 py-3 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-all">
+                        Chơi lại
+                    </button>
+                    
+                    <div id="anonymous-prompt" class="hidden text-sm text-slate-600 bg-gray-100 p-3 rounded-lg">
+                        <a href="login.html" class="font-bold text-teal-600 hover:underline">Đăng nhập</a> để lưu điểm của bạn!
+                    </div>
+                    
                     <button id="next-question-btn" class="hidden px-5 py-3 font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-all">
                         Câu tiếp theo &rarr;
                     </button>
                 </div>
             </div>
             
-            <!-- Cột 2: Bảng xếp hạng -->
             <div class="lg:col-span-1">
                 <div class="bg-gray-50 p-6 rounded-lg shadow-lg sticky top-24">
                     <h2 class="text-2xl font-bold text-slate-800 mb-4">
@@ -255,15 +231,13 @@
                     </div>
                     
                     <ol id="leaderboard-list" class="space-y-3">
-                        <!-- JS chèn bảng xếp hạng -->
-                    </ol>
+                        </ol>
                 </div>
             </div>
         </div>
 
     </main>
     
-    <!-- (CẬP NHẬT) Thêm Footer đầy đủ -->
     <footer class="bg-white border-t border-gray-200 mt-16">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
             <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
@@ -285,11 +259,6 @@
         </div>
     </footer>
 
-    <!-- 
-      ==================================================================
-      PHẦN JAVASCRIPT
-      ==================================================================
-    -->
     <script>
         // --- 1. Logic cho Menu Mobile (Giữ nguyên) ---
         const menuButton = document.getElementById('mobile-menu-button');
@@ -372,7 +341,7 @@
             if(logoutBtnMobile) logoutBtnMobile.onclick = () => { auth.signOut(); };
         }
 
-        // --- 4. Logic Game Trắc nghiệm (Giữ nguyên) ---
+        // --- 4. Logic Game Trắc nghiệm (CẬP NHẬT) ---
         
         let allQuizQuestions = []; 
         let currentQuizQuestion = null;
@@ -382,7 +351,7 @@
         let TOTAL_QUESTIONS_PER_SESSION = 0; 
 
         const pageLoader = document.getElementById('page-loader');
-        const loginPrompt = document.getElementById('quiz-login-prompt');
+        // (ĐÃ XÓA) loginPrompt
         const quizContainer = document.getElementById('quiz-container');
         const scoreDisplay = document.getElementById('quiz-score');
         const questionLoader = document.getElementById('quiz-question-loader');
@@ -390,7 +359,6 @@
         const questionText = document.getElementById('quiz-question-text');
         const optionsGrid = document.getElementById('quiz-options-grid');
         const nextQuestionBtn = document.getElementById('next-question-btn');
-        const saveScoreBtn = document.getElementById('save-score-btn');
         const leaderboardLoading = document.getElementById('leaderboard-loading');
         const leaderboardList = document.getElementById('leaderboard-list');
         const progressBar = document.getElementById('progress-bar'); 
@@ -398,6 +366,11 @@
         const quizEndScreen = document.getElementById('quiz-end-screen'); 
         const quizGameArea = document.getElementById('quiz-game-area'); 
         const finalScoreText = document.getElementById('quiz-final-score'); 
+        
+        // (MỚI) Các nút điều khiển
+        const saveScoreBtn = document.getElementById('save-score-btn');
+        const playAgainBtn = document.getElementById('play-again-btn');
+        const anonymousPrompt = document.getElementById('anonymous-prompt');
 
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
@@ -432,11 +405,12 @@
                 loadNextQuestion();
                 
                 pageLoader.classList.add('hidden');
-                quizContainer.classList.remove('hidden');
+                quizContainer.classList.remove('hidden'); // (SỬA LỖI) Luôn hiển thị game
                 
             } catch (error) {
                 console.error("Lỗi khi bắt đầu game:", error);
-                pageLoader.innerHTML = '<p class="text-red-500">Không thể tải được game. Vui lòng thử lại.</p>';
+                // (SỬA LỖI) Hiển thị lỗi ngay cả khi ẩn danh
+                pageLoader.innerHTML = `<p class="text-red-500">Không thể tải được game. Lỗi: ${error.message}. Vui lòng kiểm tra Firebase Rules.</p>`;
             }
         }
         
@@ -454,6 +428,18 @@
             questionContent.classList.add('hidden');
             questionLoader.classList.remove('hidden');
             nextQuestionBtn.classList.add('hidden');
+            
+            // (MỚI) Ẩn các nút điều khiển chính
+            saveScoreBtn.classList.add('hidden');
+            playAgainBtn.classList.add('hidden');
+            
+            // (SỬA LỖI) Chỉ hiển thị prompt nếu ẨN DANH
+            if (!currentUser) {
+                anonymousPrompt.classList.remove('hidden');
+            } else {
+                anonymousPrompt.classList.add('hidden');
+            }
+
             
             updateProgress();
             
@@ -525,7 +511,16 @@
             
             finalScoreText.innerText = currentQuizScore;
             nextQuestionBtn.classList.add('hidden'); 
-            saveScoreBtn.innerText = "Lưu điểm & Chơi lại"; 
+            
+            // (MỚI) Hiển thị nút "Lưu" hoặc "Chơi lại"
+            if (currentUser) {
+                saveScoreBtn.classList.remove('hidden');
+                saveScoreBtn.innerText = "Lưu điểm & Chơi lại";
+                anonymousPrompt.classList.add('hidden');
+            } else {
+                playAgainBtn.classList.remove('hidden');
+                anonymousPrompt.classList.remove('hidden');
+            }
         }
         
         async function loadLeaderboard() {
@@ -571,10 +566,6 @@
                 alert("Bạn phải đăng nhập để lưu điểm!");
                 return;
             }
-            if (currentQuizScore === 0 && questionCount < TOTAL_QUESTIONS_PER_SESSION) {
-                alert("Bạn chưa có điểm nào. Hãy chơi tiếp nhé!");
-                return;
-            }
             
             saveScoreBtn.disabled = true;
             saveScoreBtn.innerText = "Đang lưu...";
@@ -604,7 +595,7 @@
                 }
                 
                 await loadLeaderboard(); 
-                await startGameSession(); 
+                await startGameSession(); // Chơi lại
 
             } catch (error) {
                 console.error("Lỗi lưu điểm:", error);
@@ -618,19 +609,19 @@
         // (MỚI) Hàm tạo tuyết
         function createSnowflakes() {
             const snowContainer = document.getElementById('snow-container');
-            const snowflakesCount = 30; // Số lượng tuyết
+            if (!snowContainer) return; 
+            const snowflakesCount = 30; 
 
             for (let i = 0; i < snowflakesCount; i++) {
                 const snowflake = document.createElement('span');
                 snowflake.className = 'snowflake';
                 snowflake.innerHTML = '❄️';
                 
-                // Random vị trí, tốc độ, delay, và kích cỡ
                 snowflake.style.left = Math.random() * 100 + 'vw';
-                snowflake.style.animationDuration = (Math.random() * 20 + 10) + 's'; // 10s đến 30s
-                snowflake.style.animationDelay = Math.random() * 10 + 's'; // 0s đến 10s delay
-                snowflake.style.fontSize = (Math.random() * 1 + 0.5) + 'rem'; // 0.5rem đến 1.5rem
-                snowflake.style.opacity = Math.random() * 0.5 + 0.3; // 0.3 đến 0.8
+                snowflake.style.animationDuration = (Math.random() * 20 + 10) + 's'; 
+                snowflake.style.animationDelay = Math.random() * 10 + 's'; 
+                snowflake.style.fontSize = (Math.random() * 1 + 0.5) + 'rem'; 
+                snowflake.style.opacity = Math.random() * 0.5 + 0.3; 
                 
                 snowContainer.appendChild(snowflake);
             }
@@ -639,33 +630,32 @@
         
         // --- 5. Kích hoạt khi trang tải xong ---
         window.addEventListener('DOMContentLoaded', () => {
-            console.log('Trang "Quiz Game" (v5 - Giao diện Noel) đã tải!');
+            console.log('Trang "Quiz Game" (v5 - Cho phép Ẩn danh) đã tải!');
             
-            createSnowflakes(); // (MỚI) Tạo tuyết
+            createSnowflakes(); // Tạo tuyết
             
             if (db && auth) {
                 setupAuthUI(); 
                 
+                // (SỬA LỖI) Tải game và BXH ngay lập tức cho TẤT CẢ user
+                startGameSession();
+                loadLeaderboard();
+                
                 auth.onAuthStateChanged(user => {
                     if (user) {
+                        // Đã đăng nhập
                         currentUser = user;
-                        loginPrompt.classList.add('hidden');
-                        
-                        startGameSession();
-                        loadLeaderboard();
-                        
+                        // Ẩn/hiện nút sẽ được xử lý trong showEndGame()
                     } else {
+                        // Ẩn danh
                         currentUser = null;
-                        pageLoader.style.display = 'none'; 
-                        quizContainer.classList.add('hidden');
-                        loginPrompt.classList.remove('hidden');
-                        
-                        loadLeaderboard();
+                        // Ẩn/hiện nút sẽ được xử lý trong showEndGame()
                     }
                 });
                 
                 nextQuestionBtn.onclick = loadNextQuestion;
                 saveScoreBtn.onclick = saveScoreToLeaderboard;
+                playAgainBtn.onclick = startGameSession; // (MỚI) Nút chơi lại
             }
         });
     </script>
