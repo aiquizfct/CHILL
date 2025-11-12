@@ -8,7 +8,7 @@
     <!-- 1. TAILWIND CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- 2. FIREBASE SDKs (Thêm AUTH) -->
+    <!-- 2. FIREBASE SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
@@ -123,7 +123,7 @@
 
     <!-- 
       ==================================================================
-      PHẦN JAVASCRIPT
+      PHẦN JAVASCRIPT (ĐÃ SỬA LỖI)
       ==================================================================
     -->
     <script>
@@ -132,10 +132,12 @@
         // --- Logic Firebase ---
         
         let auth;
+        let db; // (SỬA LỖI) Thêm biến db
         
         try {
             firebase.initializeApp(firebaseConfig);
             auth = firebase.auth();
+            db = firebase.firestore(); // (SỬA LỖI) Khởi tạo Firestore
         } catch (e) {
             console.error("Lỗi khởi tạo Firebase: ", e);
             document.getElementById('login-error').innerText = "Lỗi kết nối CSDL. Vui lòng tải lại trang.";
@@ -152,7 +154,6 @@
         function showLoginError(message) {
             loginError.innerText = message;
             loginError.classList.remove('hidden');
-            // Tắt loading
             loginBtnText.classList.remove('hidden');
             loginLoading.classList.add('hidden');
         }
@@ -173,6 +174,32 @@
                     return 'Đã xảy ra lỗi. Vui lòng thử lại.';
             }
         }
+        
+        // (SỬA LỖI) Thêm hàm createUserDocument (Copy từ register.html)
+        async function createUserDocument(uid, email, displayName) {
+            if (!uid || !db) return;
+            
+            const userRef = db.collection('users').doc(uid);
+            const snapshot = await userRef.get();
+            
+            // Chỉ tạo mới nếu user CHƯA tồn tại trong CSDL
+            if (!snapshot.exists) {
+                const createdAt = new Date(); 
+                try {
+                    await userRef.set({
+                        uid,
+                        email,
+                        displayName, 
+                        createdAt,
+                        role: 'user' // Gán vai trò mặc định
+                    });
+                } catch (error) {
+                    console.error("Lỗi khi tạo document user: ", error);
+                }
+            }
+            // Nếu đã tồn tại, không làm gì cả
+        }
+
 
         // 1. (Kiểm tra xem user ĐÃ đăng nhập chưa - giữ nguyên)
         if (auth) {
@@ -206,7 +233,7 @@
             });
         }
 
-        // 3. (Xử lý Đăng nhập Google - giữ nguyên)
+        // 3. (SỬA LỖI) Xử lý Đăng nhập Google
         if (googleLoginBtn) {
             googleLoginBtn.addEventListener('click', async () => {
                 
@@ -214,15 +241,22 @@
                 const provider = new firebase.auth.GoogleAuthProvider();
 
                 try {
-                    await auth.signInWithPopup(provider);
-                    // (Thành công! onAuthStateChanged sẽ xử lý chuyển hướng)
+                    const userCredential = await auth.signInWithPopup(provider);
+                    const user = userCredential.user;
+
+                    // (SỬA LỖI) Thêm bước tạo document
+                    // Hàm này sẽ tự kiểm tra nếu user đã tồn tại
+                    await createUserDocument(user.uid, user.email, user.displayName);
+                    
+                    // (onAuthStateChanged sẽ tự động chuyển hướng)
+
                 } catch (error) {
                     showLoginError(handleAuthError(error));
                 }
             });
         }
         
-        // (MỚI) Hàm tạo tuyết (Giống minigame.html)
+        // (MỚI) Hàm tạo tuyết
         function createSnowflakes() {
             const snowContainer = document.getElementById('snow-container');
             if (!snowContainer) return; 
